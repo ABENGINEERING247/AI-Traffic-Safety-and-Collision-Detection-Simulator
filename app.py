@@ -121,9 +121,9 @@ if billu_prompt := st.sidebar.chat_input("Ask Warden Billu a traffic question...
 
         try:
             response = client.chat.completions.create(
-                model="gpt-6-luna",  # Updated to GPT Luna
+                model="gpt-6-luna",
                 messages=st.session_state.billu_messages,
-                temperature=0.7,
+                temperature=1.0,  # Set temperature to 1 as requested
             )
             billu_reply = response.choices[0].message.content
             st.session_state.billu_messages.append({"role": "assistant", "content": billu_reply})
