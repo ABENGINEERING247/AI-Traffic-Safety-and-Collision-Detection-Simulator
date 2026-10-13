@@ -18,7 +18,6 @@ st.set_page_config(
 # --- ANIMATED WELCOME POPUP WITH BLINKING CAR HEADLIGHTS ---
 @st.dialog("🚗 Welcome to AI Traffic Safety Simulator", width="medium")
 def show_welcome_popup():
-    # CSS for blinking car headlights animation
     st.markdown("""
         <style>
         @keyframes headlight-blink {
@@ -50,7 +49,6 @@ def show_welcome_popup():
         st.session_state.welcomed = True
         st.rerun()
 
-# Trigger welcome popup on initial session load
 if "welcomed" not in st.session_state:
     st.session_state.welcomed = False
     show_welcome_popup()
@@ -74,7 +72,7 @@ source_option = st.sidebar.radio(
     ["Static Picture Upload", "Upload Video File", "Live Webcam"]
 )
 
-# 3. OpenAI & Warden Billu Configuration (Using st.secrets)
+# 3. OpenAI & Warden Billu Configuration
 st.sidebar.markdown("---")
 st.sidebar.subheader("👮‍♂️ Warden Billu (AI Traffic Assistant)")
 
@@ -84,7 +82,6 @@ else:
   client = None
   st.sidebar.warning("⚠️ `OPENAI_API_KEY` not found in Streamlit secrets.")
 
-# Initialize Warden Billu chat history
 if "billu_messages" not in st.session_state:
   st.session_state.billu_messages = [
       {
@@ -102,13 +99,11 @@ if "billu_messages" not in st.session_state:
       }
   ]
 
-# Render chat history in sidebar
 for message in st.session_state.billu_messages:
   if message["role"] != "system":
     with st.sidebar.chat_message(message["role"]):
       st.sidebar.markdown(message["content"])
 
-# Chat input for Warden Billu
 if billu_prompt := st.sidebar.chat_input("Ask Warden Billu a traffic question..."):
   if not client:
     st.sidebar.error("Please configure your OpenAI API key in Streamlit secrets.")
@@ -130,14 +125,12 @@ if billu_prompt := st.sidebar.chat_input("Ask Warden Billu a traffic question...
     except Exception as e:
       st.sidebar.error(f"OpenAI error: {e}")
 
-# 4. Load YOLO Model with Caching
 @st.cache_resource
 def get_model(model_name):
   return YOLO(model_name)
 
 model = get_model(selected_model)
 
-# 5. Define Modal Dialog for Car Hazard Pop-up Alerts
 @st.dialog("🚨 CAR COLLISION HAZARD POPUP ALERT!", width="small")
 def show_hazard_popup(active_objs, distance_val):
   st.error(f"**Proximity Threshold Breached!**")
@@ -147,7 +140,6 @@ def show_hazard_popup(active_objs, distance_val):
   if st.button("Acknowledge & Close Alert"):
     st.rerun()
 
-# 6. Dashboard Layout Columns
 col1, col2 = st.columns([2, 1])
 
 with col1:
@@ -162,30 +154,32 @@ with col2:
 
 simulation_logs = []
 
-# Helper Function for PDF Report Generation
+# Helper Function for PDF Report Generation (Updated with Safety Instructions)
 def generate_pdf_report(df_data):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", "B", 16)
-    pdf.cell(200, 10, txt="AI Traffic Safety Simulation Report", ln=True, align="C")
-    pdf.set_font("Arial", "", 12)
-    pdf.cell(200, 10, txt=f"Total Log Entries: {len(df_data)}", ln=True, align="C")
-    pdf.ln(10)
+    pdf.cell(200, 10, txt="AI Traffic Safety Simulation & Audit Report", ln=True, align="C")
+    pdf.set_font("Arial", "", 11)
+    pdf.cell(200, 8, txt=f"Total Log Entries: {len(df_data)} | Warden Billu Safety Protocol Active", ln=True, align="C")
+    pdf.ln(5)
     
-    # Table Header
-    pdf.set_font("Arial", "B", 10)
-    pdf.cell(40, 10, "Frame / ID", 1, 0, "C")
-    pdf.cell(50, 10, "Timestamp (s)", 1, 0, "C")
-    pdf.cell(50, 10, "Active Objects", 1, 0, "C")
-    pdf.cell(50, 10, "Hazard Warning", 1, 1, "C")
+    # Table Header (Adjusted widths to fit instructions)
+    pdf.set_font("Arial", "B", 9)
+    pdf.cell(20, 10, "Frame/ID", 1, 0, "C")
+    pdf.cell(25, 10, "Time (s)", 1, 0, "C")
+    pdf.cell(20, 10, "Objects", 1, 0, "C")
+    pdf.cell(20, 10, "Risk?", 1, 0, "C")
+    pdf.cell(105, 10, "Warden Billu Safety Instructions", 1, 1, "C")
     
     # Table Rows
-    pdf.set_font("Arial", "", 10)
+    pdf.set_font("Arial", "", 8)
     for index, row in df_data.head(50).iterrows():
-        pdf.cell(40, 10, str(row.get("Frame", row.get("Frame / Image", 1))), 1, 0, "C")
-        pdf.cell(50, 10, str(row.get("Timestamp (s)", 0.0)), 1, 0, "C")
-        pdf.cell(50, 10, str(row.get("Active Objects", 0)), 1, 0, "C")
-        pdf.cell(50, 10, str(row.get("Collision Risk Warning", "NO")), 1, 1, "C")
+        pdf.cell(20, 10, str(row.get("Frame / Image", row.get("Frame", 1))), 1, 0, "C")
+        pdf.cell(25, 10, str(row.get("Timestamp (s)", 0.0)), 1, 0, "C")
+        pdf.cell(20, 10, str(row.get("Active Objects", 0)), 1, 0, "C")
+        pdf.cell(20, 10, str(row.get("Collision Risk Warning", "NO")), 1, 0, "C")
+        pdf.cell(105, 10, str(row.get("Warden Billu Instructions", "Maintain steady speed.")), 1, 1, "L")
         
     return pdf.output(dest='S').encode('latin1')
 
@@ -225,10 +219,12 @@ if source_option == "Static Picture Upload":
       warning_count = 0
       if current_risk:
         warning_count = 1
+        instruction_text = "Reduce speed immediately, increase following distance, and prepare to brake."
         cv2.putText(annotated, "WARNING: HAZARD PROXIMITY DETECTED", (25, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 3)
         status_alert.error("🚨 Collision risk detected in image!")
         show_hazard_popup(active_objects, min_dist)
       else:
+        instruction_text = "Traffic flow clear. Maintain safe speed and keep hands on the wheel."
         status_alert.success("🟢 Scene stable. No immediate hazards.")
 
       metric_box_objects.metric("Active Objects Tracked", active_objects)
@@ -242,6 +238,7 @@ if source_option == "Static Picture Upload":
           "Timestamp (s)": 0.0,
           "Active Objects": active_objects,
           "Collision Risk Warning": "YES" if current_risk else "NO",
+          "Warden Billu Instructions": instruction_text,
       })
 
       df_logs = pd.DataFrame(simulation_logs)
@@ -304,11 +301,13 @@ elif source_option == "Upload Video File":
 
         if current_risk:
           warning_count += 1
+          instruction_text = "Reduce speed immediately, engage brakes smoothly, and increase following distance."
           cv2.putText(annotated, "WARNING: HAZARD PROXIMITY DETECTED", (25, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 3)
           status_alert.error("🚨 Collision risk detected in frame!")
           if warning_count == 1:
             show_hazard_popup(active_objects, min_dist)
         else:
+          instruction_text = "Maintain steady cruising speed and stay alert."
           status_alert.success("🟢 Traffic flow stable.")
 
         simulation_logs.append({
@@ -316,6 +315,7 @@ elif source_option == "Upload Video File":
             "Timestamp (s)": timestamp_sec,
             "Active Objects": active_objects,
             "Collision Risk Warning": "YES" if current_risk else "NO",
+            "Warden Billu Instructions": instruction_text,
         })
 
         metric_box_objects.metric("Active Objects Tracked", active_objects)
@@ -394,11 +394,13 @@ elif source_option == "Live Webcam":
 
       if current_risk:
         warning_count += 1
+        instruction_text = "Slow down instantly, keep a 3-second gap, and stay defensive."
         cv2.putText(annotated, "WARNING: HAZARD PROXIMITY DETECTED", (25, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 3)
         status_alert.error("🚨 Collision risk detected in live stream!")
         if warning_count == 1:
           show_hazard_popup(active_objects, min_dist)
       else:
+        instruction_text = "Normal operation. Maintain regular safe speed limits."
         status_alert.success("🟢 Webcam feed stable.")
 
       simulation_logs.append({
@@ -406,6 +408,7 @@ elif source_option == "Live Webcam":
           "Timestamp (s)": timestamp_sec,
           "Active Objects": active_objects,
           "Collision Risk Warning": "YES" if current_risk else "NO",
+          "Warden Billu Instructions": instruction_text,
       })
 
       metric_box_objects.metric("Active Objects Tracked", active_objects)
