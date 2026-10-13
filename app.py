@@ -6,18 +6,62 @@ import streamlit as st
 from PIL import Image
 from openai import OpenAI
 from ultralytics import YOLO
+from fpdf import FPDF
 
 # 1. Page Configuration
 st.set_page_config(
-    page_title="AI Traffic Safety & Warden Billu Simulator",
+    page_title="AI Traffic Safety Simulator & Warden Billu",
     page_icon="👮‍♂️",
     layout="wide",
 )
 
-st.title("🚦 AI Traffic Safety Simulator & Warden Billu Assistant")
-st.markdown(
-    "Monitor traffic safety using **YOLO26**, analyze static images, videos, or live webcams, track vehicle proximity hazards with **pop-up alerts**, and chat with **Warden Billu**."
-)
+# --- ANIMATED WELCOME POPUP WITH BLINKING CAR HEADLIGHTS ---
+@st.dialog("🚗 Welcome to AI Traffic Safety Simulator", width="medium")
+def show_welcome_popup():
+    # CSS for blinking car headlights animation
+    st.markdown("""
+        <style>
+        @keyframes headlight-blink {
+            0% { opacity: 0.2; transform: scale(0.9); }
+            50% { opacity: 1.0; transform: scale(1.1); filter: drop-shadow(0 0 10px #ff3333); }
+            100% { opacity: 0.2; transform: scale(0.9); }
+        }
+        .blinking-light {
+            animation: headlight-blink 0.8s infinite ease-in-out;
+            font-size: 32px;
+            text-align: center;
+        }
+        .welcome-banner {
+            text-align: center;
+            font-family: sans-serif;
+        }
+        </style>
+        
+        <div class="welcome-banner">
+            <h2>🚦 Smart Road Safety & Hazard Detection</h2>
+            <p>Powered by <b>YOLO26</b>, OpenCV, and <b>Warden Billu</b> 👮‍♂️</p>
+            <div class="blinking-light">🔴 🚗 🔴</div>
+            <p style="font-size: 13px; color: gray;">Headlights are active. Monitoring system ready!</p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("---")
+    if st.button("🚀 Enter Simulator Dashboard", type="primary", use_container_width=True):
+        st.session_state.welcomed = True
+        st.rerun()
+
+# Trigger welcome popup on initial session load
+if "welcomed" not in st.session_state:
+    st.session_state.welcomed = False
+    show_welcome_popup()
+
+# --- TRAFFIC HEADER BANNER ---
+st.markdown("""
+    <div style="background: linear-gradient(90deg, #1f4068, #162447); padding: 20px; border-radius: 10px; color: white; text-align: center; margin-bottom: 20px;">
+        <h1 style="margin: 0; font-size: 32px;">🚥 AI TRAFFIC SAFETY & COLLISION SIMULATOR</h1>
+        <p style="margin: 5px 0 0 0; font-size: 15px; color: #e4e4e4;">Advanced Computer Vision Hazard Detection, Real-Time Auditing & Warden Billu Assistant</p>
+    </div>
+""", unsafe_allow_html=True)
 
 # 2. Sidebar Control Panel
 st.sidebar.header("Control Panel")
@@ -38,7 +82,7 @@ if "OPENAI_API_KEY" in st.secrets:
   client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 else:
   client = None
-  st.sidebar.warning("⚠️ `OPENAI_API_KEY` not found in Streamlit secrets. Please add it to `.streamlit/secrets.toml`.")
+  st.sidebar.warning("⚠️ `OPENAI_API_KEY` not found in Streamlit secrets.")
 
 # Initialize Warden Billu chat history
 if "billu_messages" not in st.session_state:
@@ -118,6 +162,33 @@ with col2:
 
 simulation_logs = []
 
+# Helper Function for PDF Report Generation
+def generate_pdf_report(df_data):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", "B", 16)
+    pdf.cell(200, 10, txt="AI Traffic Safety Simulation Report", ln=True, align="C")
+    pdf.set_font("Arial", "", 12)
+    pdf.cell(200, 10, txt=f"Total Log Entries: {len(df_data)}", ln=True, align="C")
+    pdf.ln(10)
+    
+    # Table Header
+    pdf.set_font("Arial", "B", 10)
+    pdf.cell(40, 10, "Frame / ID", 1, 0, "C")
+    pdf.cell(50, 10, "Timestamp (s)", 1, 0, "C")
+    pdf.cell(50, 10, "Active Objects", 1, 0, "C")
+    pdf.cell(50, 10, "Hazard Warning", 1, 1, "C")
+    
+    # Table Rows
+    pdf.set_font("Arial", "", 10)
+    for index, row in df_data.head(50).iterrows():
+        pdf.cell(40, 10, str(row.get("Frame", row.get("Frame / Image", 1))), 1, 0, "C")
+        pdf.cell(50, 10, str(row.get("Timestamp (s)", 0.0)), 1, 0, "C")
+        pdf.cell(50, 10, str(row.get("Active Objects", 0)), 1, 0, "C")
+        pdf.cell(50, 10, str(row.get("Collision Risk Warning", "NO")), 1, 1, "C")
+        
+    return pdf.output(dest='S').encode('latin1')
+
 # --- A. STATIC PICTURE UPLOAD ---
 if source_option == "Static Picture Upload":
   uploaded_image = st.file_uploader("Upload Traffic Image Source", type=["jpg", "jpeg", "png"])
@@ -141,7 +212,7 @@ if source_option == "Static Picture Upload":
           for j in range(i + 1, active_objects):
             b1, b2 = boxes[i], boxes[j]
             c1 = np.array([(b1[0] + b1[2]) / 2, (b1[1] + b1[3]) / 2])
-            c2 = np.array([(b2[0] + b2[2]) / 2, (b2[1] + b2[3]) / 2] )
+            c2 = np.array([(b2[0] + b2[2]) / 2, (b2[1] + b2[3]) / 2])
             dist = np.linalg.norm(c1 - c2)
 
             if dist < min_dist:
@@ -156,7 +227,6 @@ if source_option == "Static Picture Upload":
         warning_count = 1
         cv2.putText(annotated, "WARNING: HAZARD PROXIMITY DETECTED", (25, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 3)
         status_alert.error("🚨 Collision risk detected in image!")
-        # Trigger Modal Pop-up
         show_hazard_popup(active_objects, min_dist)
       else:
         status_alert.success("🟢 Scene stable. No immediate hazards.")
@@ -175,16 +245,16 @@ if source_option == "Static Picture Upload":
       })
 
       df_logs = pd.DataFrame(simulation_logs)
-      st.markdown("### 📋 Image Audit Report")
+      st.markdown("### 📋 Image Audit & Report Generator")
       st.dataframe(df_logs, use_container_width=True)
 
-      csv_data = df_logs.to_csv(index=False).encode("utf-8")
-      st.download_button(
-          label="📥 Download Image Audit CSV Report",
-          data=csv_data,
-          file_name="traffic_image_audit_log.csv",
-          mime="text/csv",
-      )
+      col_csv, col_pdf = st.columns(2)
+      with col_csv:
+        csv_data = df_logs.to_csv(index=False).encode("utf-8")
+        st.download_button("📥 Download CSV Report", data=csv_data, file_name="traffic_image_audit.csv", mime="text/csv")
+      with col_pdf:
+        pdf_bytes = generate_pdf_report(df_logs)
+        st.download_button("📥 Download PDF Report", data=pdf_bytes, file_name="traffic_image_audit.pdf", mime="application/pdf")
 
 # --- B. VIDEO FILE UPLOAD ---
 elif source_option == "Upload Video File":
@@ -236,7 +306,6 @@ elif source_option == "Upload Video File":
           warning_count += 1
           cv2.putText(annotated, "WARNING: HAZARD PROXIMITY DETECTED", (25, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 3)
           status_alert.error("🚨 Collision risk detected in frame!")
-          # Trigger popup on first warning event in video
           if warning_count == 1:
             show_hazard_popup(active_objects, min_dist)
         else:
@@ -259,16 +328,16 @@ elif source_option == "Upload Video File":
       st.success("Video simulation finished successfully!")
 
       df_logs = pd.DataFrame(simulation_logs)
-      st.markdown("### 📋 Video Simulation Audit Report")
+      st.markdown("### 📋 Video Simulation Audit & Report Generator")
       st.dataframe(df_logs.head(10), use_container_width=True)
 
-      csv_data = df_logs.to_csv(index=False).encode("utf-8")
-      st.download_button(
-          label="📥 Download Video Audit CSV Report",
-          data=csv_data,
-          file_name="traffic_video_audit_log.csv",
-          mime="text/csv",
-      )
+      col_csv, col_pdf = st.columns(2)
+      with col_csv:
+        csv_data = df_logs.to_csv(index=False).encode("utf-8")
+        st.download_button("📥 Download CSV Report", data=csv_data, file_name="traffic_video_audit.csv", mime="text/csv")
+      with col_pdf:
+        pdf_bytes = generate_pdf_report(df_logs)
+        st.download_button("📥 Download PDF Report", data=pdf_bytes, file_name="traffic_video_audit.pdf", mime="application/pdf")
 
 # --- C. LIVE WEBCAM FEED ---
 elif source_option == "Live Webcam":
@@ -331,6 +400,13 @@ elif source_option == "Live Webcam":
           show_hazard_popup(active_objects, min_dist)
       else:
         status_alert.success("🟢 Webcam feed stable.")
+
+      simulation_logs.append({
+          "Frame": frame_idx,
+          "Timestamp (s)": timestamp_sec,
+          "Active Objects": active_objects,
+          "Collision Risk Warning": "YES" if current_risk else "NO",
+      })
 
       metric_box_objects.metric("Active Objects Tracked", active_objects)
       metric_box_warnings.metric("Collision Warnings", warning_count)
