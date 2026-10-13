@@ -45,7 +45,7 @@ def show_welcome_popup():
         
         <div class="welcome-banner">
             <h2>🚦 Smart Road Safety & Hazard Detection</h2>
-            <p>Powered by <b>YOLO26</b>, OpenCV, and <b>Warden Billu</b> 👮‍♂️</p>
+            <p>Powered by <b>YOLO26</b>, OpenCV, and <b>GPT Luna</b> 👮‍♂️</p>
             <div class="blinking-light">🔴 🚗 🔴</div>
             <p style="font-size: 13px; color: gray;">Headlights are active. Monitoring system ready (Up to 400 MB support)!</p>
         </div>
@@ -64,7 +64,7 @@ if "welcomed" not in st.session_state:
 st.markdown("""
     <div style="background: linear-gradient(90deg, #1f4068, #162447); padding: 20px; border-radius: 10px; color: white; text-align: center; margin-bottom: 20px;">
         <h1 style="margin: 0; font-size: 32px;">🚥 AI TRAFFIC SAFETY & COLLISION SIMULATOR</h1>
-        <p style="margin: 5px 0 0 0; font-size: 15px; color: #e4e4e4;">Multi-Format Hazard Auditing (Up to 400MB), Specialized Entity Detection & Warden Billu Assistant</p>
+        <p style="margin: 5px 0 0 0; font-size: 15px; color: #e4e4e4;">Multi-Format Hazard Auditing (Up to 400MB), Specialized Entity Detection & GPT Luna Assistant</p>
     </div>
 """, unsafe_allow_html=True)
 
@@ -79,9 +79,9 @@ source_option = st.sidebar.radio(
     ["Media / Document Upload (Up to 400MB)", "Live Webcam"]
 )
 
-# 3. OpenAI & Warden Billu Configuration
+# 3. OpenAI & GPT Luna Configuration
 st.sidebar.markdown("---")
-st.sidebar.subheader("👮‍♂️ Warden Billu (AI Traffic Assistant)")
+st.sidebar.subheader("👮‍♂️ Warden Billu (GPT Luna Assistant)")
 
 if "OPENAI_API_KEY" in st.secrets:
     client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
@@ -95,14 +95,14 @@ if "billu_messages" not in st.session_state:
             "role": "system",
             "content": (
                 "You are Warden Billu, an enthusiastic, authoritative yet friendly neighborhood "
-                "traffic police officer and road safety assistant. You speak with a helpful demeanor, "
+                "traffic police officer and road safety assistant powered by GPT Luna. You speak with a helpful demeanor, "
                 "often using traffic-related puns or catchphrases (like 'Beep beep!', 'Stay on the safe lane!'). "
                 "Your job is to answer questions about traffic rules, signs, fines, and safe driving habits."
             )
         },
         {
             "role": "assistant",
-            "content": "Beep beep! Warden Billu on duty! 👮‍♂️ Ask me anything about traffic rules, vehicle safety, or driving tips!"
+            "content": "Beep beep! Warden Billu on duty (powered by GPT Luna)! 👮‍♂️ Ask me anything about traffic rules, vehicle safety, or driving tips!"
         }
     ]
 
@@ -121,7 +121,7 @@ if billu_prompt := st.sidebar.chat_input("Ask Warden Billu a traffic question...
 
         try:
             response = client.chat.completions.create(
-                model="gpt-4o-mini",
+                model="gpt-6-luna",  # Updated to GPT Luna
                 messages=st.session_state.billu_messages,
                 temperature=0.7,
             )
