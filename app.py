@@ -160,22 +160,60 @@ with col2:
     breakdown_placeholder = st.empty()
     status_alert = st.empty()
 
+# Helper function to update the structured vehicle breakdown table using clean HTML table formatting
+def update_breakdown_display(v_counts):
+    html_table = """
+    <style>
+    .breakdown-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-family: sans-serif;
+        font-size: 14px;
+        margin-top: 5px;
+    }
+    .breakdown-table th {
+        background-color: #1f4068;
+        color: white;
+        text-align: left;
+        padding: 8px;
+        border: 1px solid #ddd;
+    }
+    .breakdown-table td {
+        padding: 7px 8px;
+        border: 1px solid #ddd;
+    }
+    .breakdown-table tr:nth-child(even) {
+        background-color: rgba(255, 255, 255, 0.05);
+    }
+    </style>
+    <table class="breakdown-table">
+        <tr>
+            <th>Vehicle Category</th>
+            <th style="text-align: center;">QTY</th>
+        </tr>
+    """
+    for category, qty in v_counts.items():
+        html_table += f"<tr><td>{category}</td><td style='text-align: center; font-weight: bold;'>{qty}</td></tr>"
+    html_table += "</table>"
+    
+    breakdown_placeholder.markdown(html_table, unsafe_allow_html=True)
+
+# Initialize empty breakdown view on startup
+update_breakdown_display({"Cars": 0, "Motorcycles/Bikes": 0, "Buses": 0, "Trucks": 0, "Pedestrians": 0, "Other": 0})
+
 # PDF Report Generation function with Date/Time Header and vehicle counts
 def generate_pdf_report(df_data):
     pdf = FPDF()
     pdf.add_page()
     
-    # Title
     pdf.set_font("Arial", "B", 14)
     pdf.cell(190, 8, txt="AI Traffic Safety & Vehicle Audit Report", ln=True, align="C")
     
-    # Generated Timestamp and Entry Count
     generation_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     pdf.set_font("Arial", "I", 9)
     pdf.cell(190, 6, txt=f"Report Generated On: {generation_time} | Total Audit Records: {len(df_data)}", ln=True, align="C")
     pdf.ln(4)
     
-    # Table Header
     pdf.set_font("Arial", "B", 8)
     pdf.cell(15, 8, "Frm/ID", 1, 0, "C")
     pdf.cell(28, 8, "Date & Time", 1, 0, "C")
@@ -188,7 +226,6 @@ def generate_pdf_report(df_data):
     pdf.cell(12, 8, "Risk?", 1, 0, "C")
     pdf.cell(75, 8, "Warden Billu Instructions", 1, 1, "C")
     
-    # Table Rows
     pdf.set_font("Arial", "", 7)
     for index, row in df_data.head(50).iterrows():
         pdf.cell(15, 8, str(row.get("Frame / Image", row.get("Frame", 1))), 1, 0, "C")
@@ -224,7 +261,6 @@ def classify_vehicles(boxes, names_dict, result_boxes):
             counts["Other"] += 1
     return counts
 
-# Helper to render the audit report table & export buttons
 def render_audit_report_section():
     st.markdown("---")
     col_hdr, col_clear = st.columns([3, 1])
@@ -295,14 +331,13 @@ if source_option == "Static Picture Upload":
 
         metric_box_objects.metric("Active Objects Tracked", active_objects)
         metric_box_warnings.metric("Collision Warnings", warning_count)
-        breakdown_placeholder.json(v_counts)
+        update_breakdown_display(v_counts)
 
         annotated_rgb = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
         media_placeholder.image(annotated_rgb, channels="RGB", use_container_width=True)
 
         current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        # Append entry incrementally into persistent session state
         st.session_state.simulation_logs.append({
             "Date & Time": current_datetime,
             "Frame / Image": len(st.session_state.simulation_logs) + 1,
@@ -379,7 +414,6 @@ elif source_option == "Upload Video File":
                 instruction_text = "Maintain steady cruising speed and stay alert."
                 status_alert.success("🟢 Traffic flow stable.")
 
-            # Incremental logging to persistent state
             st.session_state.simulation_logs.append({
                 "Date & Time": current_datetime,
                 "Frame": frame_idx,
@@ -396,7 +430,7 @@ elif source_option == "Upload Video File":
 
             metric_box_objects.metric("Active Objects Tracked", active_objects)
             metric_box_warnings.metric("Collision Warnings", warning_count)
-            breakdown_placeholder.json(v_counts)
+            update_breakdown_display(v_counts)
 
             annotated = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
             media_placeholder.image(annotated, channels="RGB", use_container_width=True)
@@ -472,7 +506,6 @@ elif source_option == "Live Webcam":
                 instruction_text = "Normal operation. Maintain regular safe speed limits."
                 status_alert.success("🟢 Webcam feed stable.")
 
-            # Incremental logging to persistent state
             st.session_state.simulation_logs.append({
                 "Date & Time": current_datetime,
                 "Frame": frame_idx,
@@ -489,7 +522,7 @@ elif source_option == "Live Webcam":
 
             metric_box_objects.metric("Active Objects Tracked", active_objects)
             metric_box_warnings.metric("Collision Warnings", warning_count)
-            breakdown_placeholder.json(v_counts)
+            update_breakdown_display(v_counts)
 
             annotated = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
             media_placeholder.image(annotated, channels="RGB", use_container_width=True)
