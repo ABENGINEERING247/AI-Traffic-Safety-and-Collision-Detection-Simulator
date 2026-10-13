@@ -1,3 +1,4 @@
+from datetime import datetime
 import time
 import cv2
 import numpy as np
@@ -14,6 +15,10 @@ st.set_page_config(
     page_icon="👮‍♂️",
     layout="wide",
 )
+
+# --- INITIALIZE PERSISTENT LOGS IN SESSION STATE ---
+if "simulation_logs" not in st.session_state:
+    st.session_state.simulation_logs = []
 
 # --- ANIMATED WELCOME POPUP WITH BLINKING CAR HEADLIGHTS ---
 @st.dialog("🚗 Welcome to AI Traffic Safety Simulator", width="medium")
@@ -77,126 +82,128 @@ st.sidebar.markdown("---")
 st.sidebar.subheader("👮‍♂️ Warden Billu (AI Traffic Assistant)")
 
 if "OPENAI_API_KEY" in st.secrets:
-  client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 else:
-  client = None
-  st.sidebar.warning("⚠️ `OPENAI_API_KEY` not found in Streamlit secrets.")
+    client = None
+    st.sidebar.warning("⚠️ `OPENAI_API_KEY` not found in Streamlit secrets.")
 
 if "billu_messages" not in st.session_state:
-  st.session_state.billu_messages = [
-      {
-          "role": "system",
-          "content": (
-              "You are Warden Billu, an enthusiastic, authoritative yet friendly neighborhood "
-              "traffic police officer and road safety assistant. You speak with a helpful demeanor, "
-              "often using traffic-related puns or catchphrases (like 'Beep beep!', 'Stay on the safe lane!'). "
-              "Your job is to answer questions about traffic rules, signs, fines, and safe driving habits."
-          )
-      },
-      {
-          "role": "assistant",
-          "content": "Beep beep! Warden Billu on duty! 👮‍♂️ Ask me anything about traffic rules, vehicle safety, or driving tips!"
-      }
-  ]
+    st.session_state.billu_messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are Warden Billu, an enthusiastic, authoritative yet friendly neighborhood "
+                "traffic police officer and road safety assistant. You speak with a helpful demeanor, "
+                "often using traffic-related puns or catchphrases (like 'Beep beep!', 'Stay on the safe lane!'). "
+                "Your job is to answer questions about traffic rules, signs, fines, and safe driving habits."
+            )
+        },
+        {
+            "role": "assistant",
+            "content": "Beep beep! Warden Billu on duty! 👮‍♂️ Ask me anything about traffic rules, vehicle safety, or driving tips!"
+        }
+    ]
 
 for message in st.session_state.billu_messages:
-  if message["role"] != "system":
-    with st.sidebar.chat_message(message["role"]):
-      st.sidebar.markdown(message["content"])
+    if message["role"] != "system":
+        with st.sidebar.chat_message(message["role"]):
+            st.sidebar.markdown(message["content"])
 
 if billu_prompt := st.sidebar.chat_input("Ask Warden Billu a traffic question..."):
-  if not client:
-    st.sidebar.error("Please configure your OpenAI API key in Streamlit secrets.")
-  else:
-    st.session_state.billu_messages.append({"role": "user", "content": billu_prompt})
-    with st.sidebar.chat_message("user"):
-      st.sidebar.markdown(billu_prompt)
+    if not client:
+        st.sidebar.error("Please configure your OpenAI API key in Streamlit secrets.")
+    else:
+        st.session_state.billu_messages.append({"role": "user", "content": billu_prompt})
+        with st.sidebar.chat_message("user"):
+            st.sidebar.markdown(billu_prompt)
 
-    try:
-      response = client.chat.completions.create(
-          model="gpt-4o-mini",
-          messages=st.session_state.billu_messages,
-          temperature=0.7,
-      )
-      billu_reply = response.choices[0].message.content
-      st.session_state.billu_messages.append({"role": "assistant", "content": billu_reply})
-      with st.sidebar.chat_message("assistant"):
-        st.sidebar.markdown(billu_reply)
-    except Exception as e:
-      st.sidebar.error(f"OpenAI error: {e}")
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=st.session_state.billu_messages,
+                temperature=0.7,
+            )
+            billu_reply = response.choices[0].message.content
+            st.session_state.billu_messages.append({"role": "assistant", "content": billu_reply})
+            with st.sidebar.chat_message("assistant"):
+                st.sidebar.markdown(billu_reply)
+        except Exception as e:
+            st.sidebar.error(f"OpenAI error: {e}")
 
 @st.cache_resource
 def get_model(model_name):
-  return YOLO(model_name)
+    return YOLO(model_name)
 
 model = get_model(selected_model)
 
 @st.dialog("🚨 CAR COLLISION HAZARD POPUP ALERT!", width="small")
 def show_hazard_popup(active_objs, distance_val):
-  st.error(f"**Proximity Threshold Breached!**")
-  st.write(f"Detected close vehicle/object proximity (Distance: **{int(distance_val)}px**).")
-  st.markdown("---")
-  st.info("👮‍♂️ **Warden Billu says:** *'Slow down immediately, maintain safe braking distance, and yield right-of-way!'*")
-  if st.button("Acknowledge & Close Alert"):
-    st.rerun()
+    st.error("**Proximity Threshold Breached!**")
+    st.write(f"Detected close vehicle/object proximity (Distance: **{int(distance_val)}px**).")
+    st.markdown("---")
+    st.info("👮‍♂️ **Warden Billu says:** *'Slow down immediately, maintain safe braking distance, and yield right-of-way!'*")
+    if st.button("Acknowledge & Close Alert"):
+        st.rerun()
 
 col1, col2 = st.columns([2, 1])
 
 with col1:
-  st.subheader("Visual Analysis Feed")
-  media_placeholder = st.empty()
+    st.subheader("Visual Analysis Feed")
+    media_placeholder = st.empty()
 
 with col2:
-  st.subheader("Real-Time Telemetry & Breakdown")
-  metric_box_objects = st.metric("Active Objects Tracked", 0)
-  metric_box_warnings = st.metric("Collision Warnings", 0, delta="0")
-  st.markdown("---")
-  st.subheader("Vehicle Breakdown")
-  breakdown_placeholder = st.empty()
-  status_alert = st.empty()
+    st.subheader("Real-Time Telemetry & Breakdown")
+    metric_box_objects = st.metric("Active Objects Tracked", 0)
+    metric_box_warnings = st.metric("Collision Warnings", 0, delta="0")
+    st.markdown("---")
+    st.subheader("Vehicle Breakdown")
+    breakdown_placeholder = st.empty()
+    status_alert = st.empty()
 
-simulation_logs = []
-
-# Helper Function for PDF Report Generation with All Vehicle Telemetry
+# PDF Report Generation function with Date/Time Header and vehicle counts
 def generate_pdf_report(df_data):
     pdf = FPDF()
     pdf.add_page()
+    
+    # Title
     pdf.set_font("Arial", "B", 14)
-    pdf.cell(200, 10, txt="AI Traffic Safety & Vehicle Audit Report", ln=True, align="C")
-    pdf.set_font("Arial", "", 10)
-    pdf.cell(200, 6, txt=f"Total Entries: {len(df_data)} | Warden Billu Safety Protocol Active", ln=True, align="C")
-    pdf.ln(5)
+    pdf.cell(190, 8, txt="AI Traffic Safety & Vehicle Audit Report", ln=True, align="C")
+    
+    # Generated Timestamp and Entry Count
+    generation_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    pdf.set_font("Arial", "I", 9)
+    pdf.cell(190, 6, txt=f"Report Generated On: {generation_time} | Total Audit Records: {len(df_data)}", ln=True, align="C")
+    pdf.ln(4)
     
     # Table Header
     pdf.set_font("Arial", "B", 8)
     pdf.cell(15, 8, "Frm/ID", 1, 0, "C")
-    pdf.cell(18, 8, "Time(s)", 1, 0, "C")
-    pdf.cell(12, 8, "Tot", 1, 0, "C")
-    pdf.cell(12, 8, "Car", 1, 0, "C")
-    pdf.cell(12, 8, "Bike", 1, 0, "C")
-    pdf.cell(12, 8, "Bus", 1, 0, "C")
-    pdf.cell(12, 8, "Truck", 1, 0, "C")
-    pdf.cell(14, 8, "Ped", 1, 0, "C")
-    pdf.cell(15, 8, "Risk?", 1, 0, "C")
-    pdf.cell(90, 8, "Warden Billu Instructions", 1, 1, "C")
+    pdf.cell(28, 8, "Date & Time", 1, 0, "C")
+    pdf.cell(10, 8, "Tot", 1, 0, "C")
+    pdf.cell(10, 8, "Car", 1, 0, "C")
+    pdf.cell(10, 8, "Bike", 1, 0, "C")
+    pdf.cell(10, 8, "Bus", 1, 0, "C")
+    pdf.cell(10, 8, "Trk", 1, 0, "C")
+    pdf.cell(10, 8, "Ped", 1, 0, "C")
+    pdf.cell(12, 8, "Risk?", 1, 0, "C")
+    pdf.cell(75, 8, "Warden Billu Instructions", 1, 1, "C")
     
     # Table Rows
     pdf.set_font("Arial", "", 7)
     for index, row in df_data.head(50).iterrows():
         pdf.cell(15, 8, str(row.get("Frame / Image", row.get("Frame", 1))), 1, 0, "C")
-        pdf.cell(18, 8, str(row.get("Timestamp (s)", 0.0)), 1, 0, "C")
-        pdf.cell(12, 8, str(row.get("Active Objects", 0)), 1, 0, "C")
-        pdf.cell(12, 8, str(row.get("Cars", 0)), 1, 0, "C")
-        pdf.cell(12, 8, str(row.get("Motorcycles/Bikes", 0)), 1, 0, "C")
-        pdf.cell(12, 8, str(row.get("Buses", 0)), 1, 0, "C")
-        pdf.cell(12, 8, str(row.get("Trucks", 0)), 1, 0, "C")
-        pdf.cell(14, 8, str(row.get("Pedestrians", 0)), 1, 0, "C")
-        pdf.cell(15, 8, str(row.get("Collision Risk Warning", "NO")), 1, 0, "C")
-        pdf.cell(90, 8, str(row.get("Warden Billu Instructions", "Maintain steady speed.")), 1, 1, "L")
+        pdf.cell(28, 8, str(row.get("Date & Time", "")), 1, 0, "C")
+        pdf.cell(10, 8, str(row.get("Active Objects", 0)), 1, 0, "C")
+        pdf.cell(10, 8, str(row.get("Cars", 0)), 1, 0, "C")
+        pdf.cell(10, 8, str(row.get("Motorcycles/Bikes", 0)), 1, 0, "C")
+        pdf.cell(10, 8, str(row.get("Buses", 0)), 1, 0, "C")
+        pdf.cell(10, 8, str(row.get("Trucks", 0)), 1, 0, "C")
+        pdf.cell(10, 8, str(row.get("Pedestrians", 0)), 1, 0, "C")
+        pdf.cell(12, 8, str(row.get("Collision Risk Warning", "NO")), 1, 0, "C")
+        pdf.cell(75, 8, str(row.get("Warden Billu Instructions", "Maintain steady speed.")), 1, 1, "L")
         
     return pdf.output(dest='S').encode('latin1')
 
-# Helper function to count vehicle types from YOLO detections
 def classify_vehicles(boxes, names_dict, result_boxes):
     counts = {"Cars": 0, "Motorcycles/Bikes": 0, "Buses": 0, "Trucks": 0, "Pedestrians": 0, "Other": 0}
     for box in result_boxes:
@@ -217,260 +224,276 @@ def classify_vehicles(boxes, names_dict, result_boxes):
             counts["Other"] += 1
     return counts
 
+# Helper to render the audit report table & export buttons
+def render_audit_report_section():
+    st.markdown("---")
+    col_hdr, col_clear = st.columns([3, 1])
+    with col_hdr:
+        st.markdown("### 📋 Cumulative Audit Log & Report Generator")
+    with col_clear:
+        if st.button("🗑️ Clear Audit History", type="secondary"):
+            st.session_state.simulation_logs = []
+            st.rerun()
+
+    if st.session_state.simulation_logs:
+        df_logs = pd.DataFrame(st.session_state.simulation_logs)
+        st.dataframe(df_logs, use_container_width=True)
+
+        col_csv, col_pdf = st.columns(2)
+        with col_csv:
+            csv_data = df_logs.to_csv(index=False).encode("utf-8")
+            st.download_button("📥 Download CSV Report", data=csv_data, file_name="traffic_audit_report.csv", mime="text/csv")
+        with col_pdf:
+            pdf_bytes = generate_pdf_report(df_logs)
+            st.download_button("📥 Download PDF Report", data=pdf_bytes, file_name="traffic_audit_report.pdf", mime="application/pdf")
+    else:
+        st.info("Audit log is currently empty.")
+
 # --- A. STATIC PICTURE UPLOAD (AUTO-RUN) ---
 if source_option == "Static Picture Upload":
-  uploaded_image = st.file_uploader("Upload Traffic Image Source", type=["jpg", "jpeg", "png"])
-  
-  if uploaded_image:
-    image = Image.open(uploaded_image)
-    frame = np.array(image)
-    frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+    uploaded_image = st.file_uploader("Upload Traffic Image Source", type=["jpg", "jpeg", "png"])
+    
+    if uploaded_image:
+        image = Image.open(uploaded_image)
+        frame = np.array(image)
+        frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
-    results = model(frame_bgr, conf=conf_threshold, verbose=False)
-    annotated = results[0].plot()
+        results = model(frame_bgr, conf=conf_threshold, verbose=False)
+        annotated = results[0].plot()
 
-    boxes = results[0].boxes.xyxy.cpu().numpy() if len(results[0].boxes) > 0 else np.array([])
-    active_objects = len(boxes)
-    v_counts = classify_vehicles(boxes, model.names, results[0].boxes)
-    current_risk = False
-    min_dist = float("inf")
+        boxes = results[0].boxes.xyxy.cpu().numpy() if len(results[0].boxes) > 0 else np.array([])
+        active_objects = len(boxes)
+        v_counts = classify_vehicles(boxes, model.names, results[0].boxes)
+        current_risk = False
+        min_dist = float("inf")
 
-    if active_objects >= 2:
-      for i in range(active_objects):
-        for j in range(i + 1, active_objects):
-          b1, b2 = boxes[i], boxes[j]
-          c1 = np.array([(b1[0] + b1[2]) / 2, (b1[1] + b1[3]) / 2])
-          c2 = np.array([(b2[0] + b2[2]) / 2, (b2[1] + b2[3]) / 2])
-          dist = np.linalg.norm(c1 - c2)
+        if active_objects >= 2:
+            for i in range(active_objects):
+                for j in range(i + 1, active_objects):
+                    b1, b2 = boxes[i], boxes[j]
+                    c1 = np.array([(b1[0] + b1[2]) / 2, (b1[1] + b1[3]) / 2])
+                    c2 = np.array([(b2[0] + b2[2]) / 2, (b2[1] + b2[3]) / 2])
+                    dist = np.linalg.norm(c1 - c2)
 
-          if dist < min_dist:
-            min_dist = dist
+                    if dist < min_dist:
+                        min_dist = dist
 
-          if dist < proximity_limit:
-            current_risk = True
-            cv2.line(annotated, (int(c1[0]), int(c1[1])), (int(c2[0]), int(c2[1])), (0, 0, 255), 3)
+                    if dist < proximity_limit:
+                        current_risk = True
+                        cv2.line(annotated, (int(c1[0]), int(c1[1])), (int(c2[0]), int(c2[1])), (0, 0, 255), 3)
 
-    warning_count = 0
-    if current_risk:
-      warning_count = 1
-      instruction_text = "Reduce speed immediately, increase following distance, and prepare to brake."
-      cv2.putText(annotated, "WARNING: HAZARD PROXIMITY DETECTED", (25, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 3)
-      status_alert.error("🚨 Collision risk detected in image!")
-      show_hazard_popup(active_objects, min_dist)
-    else:
-      instruction_text = "Traffic flow clear. Maintain safe speed and keep hands on the wheel."
-      status_alert.success("🟢 Scene stable. No immediate hazards.")
+        warning_count = 0
+        if current_risk:
+            warning_count = 1
+            instruction_text = "Reduce speed immediately, increase following distance, and prepare to brake."
+            cv2.putText(annotated, "WARNING: HAZARD PROXIMITY DETECTED", (25, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 3)
+            status_alert.error("🚨 Collision risk detected in image!")
+            show_hazard_popup(active_objects, min_dist)
+        else:
+            instruction_text = "Traffic flow clear. Maintain safe speed and keep hands on the wheel."
+            status_alert.success("🟢 Scene stable. No immediate hazards.")
 
-    metric_box_objects.metric("Active Objects Tracked", active_objects)
-    metric_box_warnings.metric("Collision Warnings", warning_count)
-    breakdown_placeholder.json(v_counts)
+        metric_box_objects.metric("Active Objects Tracked", active_objects)
+        metric_box_warnings.metric("Collision Warnings", warning_count)
+        breakdown_placeholder.json(v_counts)
 
-    annotated_rgb = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
-    media_placeholder.image(annotated_rgb, channels="RGB", use_container_width=True)
+        annotated_rgb = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
+        media_placeholder.image(annotated_rgb, channels="RGB", use_container_width=True)
 
-    log_entry = {
-        "Frame / Image": 1,
-        "Timestamp (s)": 0.0,
-        "Active Objects": active_objects,
-        "Cars": v_counts["Cars"],
-        "Motorcycles/Bikes": v_counts["Motorcycles/Bikes"],
-        "Buses": v_counts["Buses"],
-        "Trucks": v_counts["Trucks"],
-        "Pedestrians": v_counts["Pedestrians"],
-        "Collision Risk Warning": "YES" if current_risk else "NO",
-        "Warden Billu Instructions": instruction_text,
-    }
-    simulation_logs.append(log_entry)
+        current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    df_logs = pd.DataFrame(simulation_logs)
-    st.markdown("### 📋 Image Audit & Report Generator")
-    st.dataframe(df_logs, use_container_width=True)
+        # Append entry incrementally into persistent session state
+        st.session_state.simulation_logs.append({
+            "Date & Time": current_datetime,
+            "Frame / Image": len(st.session_state.simulation_logs) + 1,
+            "Timestamp (s)": 0.0,
+            "Active Objects": active_objects,
+            "Cars": v_counts["Cars"],
+            "Motorcycles/Bikes": v_counts["Motorcycles/Bikes"],
+            "Buses": v_counts["Buses"],
+            "Trucks": v_counts["Trucks"],
+            "Pedestrians": v_counts["Pedestrians"],
+            "Collision Risk Warning": "YES" if current_risk else "NO",
+            "Warden Billu Instructions": instruction_text,
+        })
 
-    col_csv, col_pdf = st.columns(2)
-    with col_csv:
-      csv_data = df_logs.to_csv(index=False).encode("utf-8")
-      st.download_button("📥 Download CSV Report", data=csv_data, file_name="traffic_image_audit.csv", mime="text/csv")
-    with col_pdf:
-      pdf_bytes = generate_pdf_report(df_logs)
-      st.download_button("📥 Download PDF Report", data=pdf_bytes, file_name="traffic_image_audit.pdf", mime="application/pdf")
+    render_audit_report_section()
 
 # --- B. VIDEO FILE UPLOAD (AUTO-RUN) ---
 elif source_option == "Upload Video File":
-  uploaded_video = st.file_uploader("Upload Traffic Video Source", type=["mp4", "mov", "avi"])
-  
-  if uploaded_video:
-    temp_path = "temp_uploaded_traffic.mp4"
-    with open(temp_path, "wb") as f:
-      f.write(uploaded_video.read())
+    uploaded_video = st.file_uploader("Upload Traffic Video Source", type=["mp4", "mov", "avi"])
+    
+    if uploaded_video:
+        temp_path = "temp_uploaded_traffic.mp4"
+        with open(temp_path, "wb") as f:
+            f.write(uploaded_video.read())
 
-    cap = cv2.VideoCapture(temp_path)
-    fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
-    frame_idx = 0
-    warning_count = 0
-    popup_triggered = False
+        cap = cv2.VideoCapture(temp_path)
+        fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
+        frame_idx = 0
+        warning_count = 0
+        popup_triggered = False
 
-    while cap.isOpened():
-      ret, frame = cap.read()
-      if not ret:
-        break
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
 
-      frame_idx += 1
-      timestamp_sec = round(frame_idx / fps, 2)
+            frame_idx += 1
+            timestamp_sec = round(frame_idx / fps, 2)
+            current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-      results = model.track(frame, conf=conf_threshold, persist=True, tracker="bytetrack.yaml", verbose=False)
-      annotated = results[0].plot()
+            results = model.track(frame, conf=conf_threshold, persist=True, tracker="bytetrack.yaml", verbose=False)
+            annotated = results[0].plot()
 
-      boxes = results[0].boxes.xyxy.cpu().numpy() if len(results[0].boxes) > 0 else np.array([])
-      active_objects = len(boxes)
-      v_counts = classify_vehicles(boxes, model.names, results[0].boxes)
-      current_risk = False
-      min_dist = float("inf")
+            boxes = results[0].boxes.xyxy.cpu().numpy() if len(results[0].boxes) > 0 else np.array([])
+            active_objects = len(boxes)
+            v_counts = classify_vehicles(boxes, model.names, results[0].boxes)
+            current_risk = False
+            min_dist = float("inf")
 
-      if active_objects >= 2:
-        for i in range(active_objects):
-          for j in range(i + 1, active_objects):
-            b1, b2 = boxes[i], boxes[j]
-            c1 = np.array([(b1[0] + b1[2]) / 2, (b1[1] + b1[3]) / 2])
-            c2 = np.array([(b2[0] + b2[2]) / 2, (b2[1] + b2[3]) / 2])
-            dist = np.linalg.norm(c1 - c2)
+            if active_objects >= 2:
+                for i in range(active_objects):
+                    for j in range(i + 1, active_objects):
+                        b1, b2 = boxes[i], boxes[j]
+                        c1 = np.array([(b1[0] + b1[2]) / 2, (b1[1] + b1[3]) / 2])
+                        c2 = np.array([(b2[0] + b2[2]) / 2, (b2[1] + b2[3]) / 2])
+                        dist = np.linalg.norm(c1 - c2)
 
-            if dist < min_dist:
-              min_dist = dist
+                        if dist < min_dist:
+                            min_dist = dist
 
-            if dist < proximity_limit:
-              current_risk = True
-              cv2.line(annotated, (int(c1[0]), int(c1[1])), (int(c2[0]), int(c2[1])), (0, 0, 255), 3)
+                        if dist < proximity_limit:
+                            current_risk = True
+                            cv2.line(annotated, (int(c1[0]), int(c1[1])), (int(c2[0]), int(c2[1])), (0, 0, 255), 3)
 
-      if current_risk:
-        warning_count += 1
-        instruction_text = "Reduce speed immediately, engage brakes smoothly, and increase following distance."
-        cv2.putText(annotated, "WARNING: HAZARD PROXIMITY DETECTED", (25, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 3)
-        status_alert.error("🚨 Collision risk detected in frame!")
-        if not popup_triggered:
-          show_hazard_popup(active_objects, min_dist)
-          popup_triggered = True
-      else:
-        instruction_text = "Maintain steady cruising speed and stay alert."
-        status_alert.success("🟢 Traffic flow stable.")
+            if current_risk:
+                warning_count += 1
+                instruction_text = "Reduce speed immediately, engage brakes smoothly, and increase following distance."
+                cv2.putText(annotated, "WARNING: HAZARD PROXIMITY DETECTED", (25, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 3)
+                status_alert.error("🚨 Collision risk detected in frame!")
+                if not popup_triggered:
+                    show_hazard_popup(active_objects, min_dist)
+                    popup_triggered = True
+            else:
+                instruction_text = "Maintain steady cruising speed and stay alert."
+                status_alert.success("🟢 Traffic flow stable.")
 
-      simulation_logs.append({
-          "Frame": frame_idx,
-          "Timestamp (s)": timestamp_sec,
-          "Active Objects": active_objects,
-          "Cars": v_counts["Cars"],
-          "Motorcycles/Bikes": v_counts["Motorcycles/Bikes"],
-          "Buses": v_counts["Buses"],
-          "Trucks": v_counts["Trucks"],
-          "Pedestrians": v_counts["Pedestrians"],
-          "Collision Risk Warning": "YES" if current_risk else "NO",
-          "Warden Billu Instructions": instruction_text,
-      })
+            # Incremental logging to persistent state
+            st.session_state.simulation_logs.append({
+                "Date & Time": current_datetime,
+                "Frame": frame_idx,
+                "Timestamp (s)": timestamp_sec,
+                "Active Objects": active_objects,
+                "Cars": v_counts["Cars"],
+                "Motorcycles/Bikes": v_counts["Motorcycles/Bikes"],
+                "Buses": v_counts["Buses"],
+                "Trucks": v_counts["Trucks"],
+                "Pedestrians": v_counts["Pedestrians"],
+                "Collision Risk Warning": "YES" if current_risk else "NO",
+                "Warden Billu Instructions": instruction_text,
+            })
 
-      metric_box_objects.metric("Active Objects Tracked", active_objects)
-      metric_box_warnings.metric("Collision Warnings", warning_count)
-      breakdown_placeholder.json(v_counts)
+            metric_box_objects.metric("Active Objects Tracked", active_objects)
+            metric_box_warnings.metric("Collision Warnings", warning_count)
+            breakdown_placeholder.json(v_counts)
 
-      annotated = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
-      media_placeholder.image(annotated, channels="RGB", use_container_width=True)
+            annotated = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
+            media_placeholder.image(annotated, channels="RGB", use_container_width=True)
 
-    cap.release()
-    st.success("Video simulation & automatic hazard auditing completed successfully!")
+        cap.release()
+        st.success("Video processing completed and appended to audit history!")
 
-    df_logs = pd.DataFrame(simulation_logs)
-    st.markdown("### 📋 Video Simulation Audit & Report Generator")
-    st.dataframe(df_logs.head(10), use_container_width=True)
-
-    col_csv, col_pdf = st.columns(2)
-    with col_csv:
-      csv_data = df_logs.to_csv(index=False).encode("utf-8")
-      st.download_button("📥 Download CSV Report", data=csv_data, file_name="traffic_video_audit.csv", mime="text/csv")
-    with col_pdf:
-      pdf_bytes = generate_pdf_report(df_logs)
-      st.download_button("📥 Download PDF Report", data=pdf_bytes, file_name="traffic_video_audit.pdf", mime="application/pdf")
+    render_audit_report_section()
 
 # --- C. LIVE WEBCAM FEED ---
 elif source_option == "Live Webcam":
-  st.markdown("ℹ️ *Ensure your webcam is connected. Use the controls below to manage the feed.*")
-  
-  if "webcam_running" not in st.session_state:
-    st.session_state.webcam_running = False
+    st.markdown("ℹ️ *Ensure your webcam is connected. Use the controls below to manage the feed.*")
+    
+    if "webcam_running" not in st.session_state:
+        st.session_state.webcam_running = False
 
-  col_start, col_stop = st.columns(2)
-  with col_start:
-    if st.button("🔴 Start Live Webcam Stream"):
-      st.session_state.webcam_running = True
-  with col_stop:
-    if st.button("⏹️ Stop Webcam Stream"):
-      st.session_state.webcam_running = False
+    col_start, col_stop = st.columns(2)
+    with col_start:
+        if st.button("🔴 Start Live Webcam Stream"):
+            st.session_state.webcam_running = True
+    with col_stop:
+        if st.button("⏹️ Stop Webcam Stream"):
+            st.session_state.webcam_running = False
 
-  if st.session_state.webcam_running:
-    cap = cv2.VideoCapture(0)
-    frame_idx = 0
-    warning_count = 0
-    start_time = time.time()
+    if st.session_state.webcam_running:
+        cap = cv2.VideoCapture(0)
+        frame_idx = 0
+        warning_count = 0
+        start_time = time.time()
 
-    while st.session_state.webcam_running and cap.isOpened():
-      ret, frame = cap.read()
-      if not ret:
-        st.error("Failed to access webcam stream. Check device connection.")
-        break
+        while st.session_state.webcam_running and cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                st.error("Failed to access webcam stream. Check device connection.")
+                break
 
-      frame_idx += 1
-      timestamp_sec = round(time.time() - start_time, 2)
+            frame_idx += 1
+            timestamp_sec = round(time.time() - start_time, 2)
+            current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-      results = model.track(frame, conf=conf_threshold, persist=True, tracker="bytetrack.yaml", verbose=False)
-      annotated = results[0].plot()
+            results = model.track(frame, conf=conf_threshold, persist=True, tracker="bytetrack.yaml", verbose=False)
+            annotated = results[0].plot()
 
-      boxes = results[0].boxes.xyxy.cpu().numpy() if len(results[0].boxes) > 0 else np.array([])
-      active_objects = len(boxes)
-      v_counts = classify_vehicles(boxes, model.names, results[0].boxes)
-      current_risk = False
-      min_dist = float("inf")
+            boxes = results[0].boxes.xyxy.cpu().numpy() if len(results[0].boxes) > 0 else np.array([])
+            active_objects = len(boxes)
+            v_counts = classify_vehicles(boxes, model.names, results[0].boxes)
+            current_risk = False
+            min_dist = float("inf")
 
-      if active_objects >= 2:
-        for i in range(active_objects):
-          for j in range(i + 1, active_objects):
-            b1, b2 = boxes[i], boxes[j]
-            c1 = np.array([(b1[0] + b1[2]) / 2, (b1[1] + b1[3]) / 2])
-            c2 = np.array([(b2[0] + b2[2]) / 2, (b2[1] + b2[3]) / 2])
-            dist = np.linalg.norm(c1 - c2)
+            if active_objects >= 2:
+                for i in range(active_objects):
+                    for j in range(i + 1, active_objects):
+                        b1, b2 = boxes[i], boxes[j]
+                        c1 = np.array([(b1[0] + b1[2]) / 2, (b1[1] + b1[3]) / 2])
+                        c2 = np.array([(b2[0] + b2[2]) / 2, (b2[1] + b2[3]) / 2])
+                        dist = np.linalg.norm(c1 - c2)
 
-            if dist < min_dist:
-              min_dist = dist
+                        if dist < min_dist:
+                            min_dist = dist
 
-            if dist < proximity_limit:
-              current_risk = True
-              cv2.line(annotated, (int(c1[0]), int(c1[1])), (int(c2[0]), int(c2[1])), (0, 0, 255), 3)
+                        if dist < proximity_limit:
+                            current_risk = True
+                            cv2.line(annotated, (int(c1[0]), int(c1[1])), (int(c2[0]), int(c2[1])), (0, 0, 255), 3)
 
-      if current_risk:
-        warning_count += 1
-        instruction_text = "Slow down instantly, keep a 3-second gap, and stay defensive."
-        cv2.putText(annotated, "WARNING: HAZARD PROXIMITY DETECTED", (25, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 3)
-        status_alert.error("🚨 Collision risk detected in live stream!")
-        if warning_count == 1:
-          show_hazard_popup(active_objects, min_dist)
-      else:
-        instruction_text = "Normal operation. Maintain regular safe speed limits."
-        status_alert.success("🟢 Webcam feed stable.")
+            if current_risk:
+                warning_count += 1
+                instruction_text = "Slow down instantly, keep a 3-second gap, and stay defensive."
+                cv2.putText(annotated, "WARNING: HAZARD PROXIMITY DETECTED", (25, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 3)
+                status_alert.error("🚨 Collision risk detected in live stream!")
+                if warning_count == 1:
+                    show_hazard_popup(active_objects, min_dist)
+            else:
+                instruction_text = "Normal operation. Maintain regular safe speed limits."
+                status_alert.success("🟢 Webcam feed stable.")
 
-      simulation_logs.append({
-          "Frame": frame_idx,
-          "Timestamp (s)": timestamp_sec,
-          "Active Objects": active_objects,
-          "Cars": v_counts["Cars"],
-          "Motorcycles/Bikes": v_counts["Motorcycles/Bikes"],
-          "Buses": v_counts["Buses"],
-          "Trucks": v_counts["Trucks"],
-          "Pedestrians": v_counts["Pedestrians"],
-          "Collision Risk Warning": "YES" if current_risk else "NO",
-          "Warden Billu Instructions": instruction_text,
-      })
+            # Incremental logging to persistent state
+            st.session_state.simulation_logs.append({
+                "Date & Time": current_datetime,
+                "Frame": frame_idx,
+                "Timestamp (s)": timestamp_sec,
+                "Active Objects": active_objects,
+                "Cars": v_counts["Cars"],
+                "Motorcycles/Bikes": v_counts["Motorcycles/Bikes"],
+                "Buses": v_counts["Buses"],
+                "Trucks": v_counts["Trucks"],
+                "Pedestrians": v_counts["Pedestrians"],
+                "Collision Risk Warning": "YES" if current_risk else "NO",
+                "Warden Billu Instructions": instruction_text,
+            })
 
-      metric_box_objects.metric("Active Objects Tracked", active_objects)
-      metric_box_warnings.metric("Collision Warnings", warning_count)
-      breakdown_placeholder.json(v_counts)
+            metric_box_objects.metric("Active Objects Tracked", active_objects)
+            metric_box_warnings.metric("Collision Warnings", warning_count)
+            breakdown_placeholder.json(v_counts)
 
-      annotated = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
-      media_placeholder.image(annotated, channels="RGB", use_container_width=True)
+            annotated = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
+            media_placeholder.image(annotated, channels="RGB", use_container_width=True)
 
-    cap.release()
+        cap.release()
+
+    render_audit_report_section()
