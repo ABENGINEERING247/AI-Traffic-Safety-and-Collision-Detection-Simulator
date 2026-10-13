@@ -62,7 +62,7 @@ if "welcomed" not in st.session_state:
 st.markdown("""
     <div style="background: linear-gradient(90deg, #1f4068, #162447); padding: 20px; border-radius: 10px; color: white; text-align: center; margin-bottom: 20px;">
         <h1 style="margin: 0; font-size: 32px;">🚥 AI TRAFFIC SAFETY & COLLISION SIMULATOR</h1>
-        <p style="margin: 5px 0 0 0; font-size: 15px; color: #e4e4e4;">All-Vehicle Detection, Auto-Hazard Auditing & Warden Billu Assistant</p>
+        <p style="margin: 5px 0 0 0; font-size: 15px; color: #e4e4e4;">Advanced Detection, Auto-Hazard Auditing & Warden Billu Assistant</p>
     </div>
 """, unsafe_allow_html=True)
 
@@ -160,7 +160,7 @@ with col2:
     breakdown_placeholder = st.empty()
     status_alert = st.empty()
 
-# Helper function to update the structured vehicle breakdown table using clean HTML table formatting
+# Helper function to display structured vehicle breakdown table
 def update_breakdown_display(v_counts):
     html_table = """
     <style>
@@ -168,18 +168,18 @@ def update_breakdown_display(v_counts):
         width: 100%;
         border-collapse: collapse;
         font-family: sans-serif;
-        font-size: 14px;
+        font-size: 13px;
         margin-top: 5px;
     }
     .breakdown-table th {
         background-color: #1f4068;
         color: white;
         text-align: left;
-        padding: 8px;
+        padding: 6px;
         border: 1px solid #ddd;
     }
     .breakdown-table td {
-        padding: 7px 8px;
+        padding: 5px 6px;
         border: 1px solid #ddd;
     }
     .breakdown-table tr:nth-child(even) {
@@ -188,7 +188,7 @@ def update_breakdown_display(v_counts):
     </style>
     <table class="breakdown-table">
         <tr>
-            <th>Vehicle Category</th>
+            <th>Vehicle / Entity Category</th>
             <th style="text-align: center;">QTY</th>
         </tr>
     """
@@ -198,67 +198,85 @@ def update_breakdown_display(v_counts):
     
     breakdown_placeholder.markdown(html_table, unsafe_allow_html=True)
 
-# Initialize empty breakdown view on startup
-update_breakdown_display({"Cars": 0, "Motorcycles/Bikes": 0, "Buses": 0, "Trucks": 0, "Pedestrians": 0, "Other": 0})
+# Initialize empty breakdown table
+update_breakdown_display({
+    "Cars": 0, "Bikes": 0, "Buses": 0, "Ambulances": 0, 
+    "Persons": 0, "Persons with Mask": 0, "Disabled Persons": 0, "Blind Persons": 0
+})
 
-# PDF Report Generation function with Date/Time Header and vehicle counts
+# PDF Report Generation function with extended entity categories
 def generate_pdf_report(df_data):
-    pdf = FPDF()
+    pdf = FPDF(orientation='L', unit='mm', format='A4') # Landscape for extra columns
     pdf.add_page()
     
     pdf.set_font("Arial", "B", 14)
-    pdf.cell(190, 8, txt="AI Traffic Safety & Vehicle Audit Report", ln=True, align="C")
+    pdf.cell(277, 8, txt="AI Traffic Safety & Comprehensive Entity Audit Report", ln=True, align="C")
     
     generation_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     pdf.set_font("Arial", "I", 9)
-    pdf.cell(190, 6, txt=f"Report Generated On: {generation_time} | Total Audit Records: {len(df_data)}", ln=True, align="C")
+    pdf.cell(277, 6, txt=f"Report Generated On: {generation_time} | Total Audit Records: {len(df_data)}", ln=True, align="C")
     pdf.ln(4)
     
     pdf.set_font("Arial", "B", 8)
     pdf.cell(15, 8, "Frm/ID", 1, 0, "C")
-    pdf.cell(28, 8, "Date & Time", 1, 0, "C")
-    pdf.cell(10, 8, "Tot", 1, 0, "C")
-    pdf.cell(10, 8, "Car", 1, 0, "C")
-    pdf.cell(10, 8, "Bike", 1, 0, "C")
-    pdf.cell(10, 8, "Bus", 1, 0, "C")
-    pdf.cell(10, 8, "Trk", 1, 0, "C")
-    pdf.cell(10, 8, "Ped", 1, 0, "C")
+    pdf.cell(32, 8, "Date & Time", 1, 0, "C")
+    pdf.cell(12, 8, "Tot", 1, 0, "C")
+    pdf.cell(12, 8, "Car", 1, 0, "C")
+    pdf.cell(12, 8, "Bike", 1, 0, "C")
+    pdf.cell(12, 8, "Bus", 1, 0, "C")
+    pdf.cell(15, 8, "Amb", 1, 0, "C")
+    pdf.cell(15, 8, "Person", 1, 0, "C")
+    pdf.cell(18, 8, "Masked", 1, 0, "C")
+    pdf.cell(15, 8, "Disabled", 1, 0, "C")
+    pdf.cell(15, 8, "Blind", 1, 0, "C")
     pdf.cell(12, 8, "Risk?", 1, 0, "C")
-    pdf.cell(75, 8, "Warden Billu Instructions", 1, 1, "C")
+    pdf.cell(69, 8, "Warden Billu Instructions", 1, 1, "C")
     
     pdf.set_font("Arial", "", 7)
     for index, row in df_data.head(50).iterrows():
         pdf.cell(15, 8, str(row.get("Frame / Image", row.get("Frame", 1))), 1, 0, "C")
-        pdf.cell(28, 8, str(row.get("Date & Time", "")), 1, 0, "C")
-        pdf.cell(10, 8, str(row.get("Active Objects", 0)), 1, 0, "C")
-        pdf.cell(10, 8, str(row.get("Cars", 0)), 1, 0, "C")
-        pdf.cell(10, 8, str(row.get("Motorcycles/Bikes", 0)), 1, 0, "C")
-        pdf.cell(10, 8, str(row.get("Buses", 0)), 1, 0, "C")
-        pdf.cell(10, 8, str(row.get("Trucks", 0)), 1, 0, "C")
-        pdf.cell(10, 8, str(row.get("Pedestrians", 0)), 1, 0, "C")
+        pdf.cell(32, 8, str(row.get("Date & Time", "")), 1, 0, "C")
+        pdf.cell(12, 8, str(row.get("Active Objects", 0)), 1, 0, "C")
+        pdf.cell(12, 8, str(row.get("Cars", 0)), 1, 0, "C")
+        pdf.cell(12, 8, str(row.get("Bikes", 0)), 1, 0, "C")
+        pdf.cell(12, 8, str(row.get("Buses", 0)), 1, 0, "C")
+        pdf.cell(15, 8, str(row.get("Ambulances", 0)), 1, 0, "C")
+        pdf.cell(15, 8, str(row.get("Persons", 0)), 1, 0, "C")
+        pdf.cell(18, 8, str(row.get("Persons with Mask", 0)), 1, 0, "C")
+        pdf.cell(15, 8, str(row.get("Disabled Persons", 0)), 1, 0, "C")
+        pdf.cell(15, 8, str(row.get("Blind Persons", 0)), 1, 0, "C")
         pdf.cell(12, 8, str(row.get("Collision Risk Warning", "NO")), 1, 0, "C")
-        pdf.cell(75, 8, str(row.get("Warden Billu Instructions", "Maintain steady speed.")), 1, 1, "L")
+        pdf.cell(69, 8, str(row.get("Warden Billu Instructions", "Maintain steady speed.")), 1, 1, "L")
         
     return pdf.output(dest='S').encode('latin1')
 
-def classify_vehicles(boxes, names_dict, result_boxes):
-    counts = {"Cars": 0, "Motorcycles/Bikes": 0, "Buses": 0, "Trucks": 0, "Pedestrians": 0, "Other": 0}
+def classify_all_entities(boxes, result_boxes):
+    counts = {
+        "Cars": 0, "Bikes": 0, "Buses": 0, "Ambulances": 0, 
+        "Persons": 0, "Persons with Mask": 0, "Disabled Persons": 0, "Blind Persons": 0
+    }
     for box in result_boxes:
         cls_id = int(box.cls[0])
         cls_name = model.names.get(cls_id, "").lower()
         
-        if "car" in cls_name:
+        # Comprehensive mapping for requested classes
+        if "ambulance" in cls_name:
+            counts["Ambulances"] += 1
+        elif "car" in cls_name:
             counts["Cars"] += 1
         elif "motorcycle" in cls_name or "bike" in cls_name or "bicycle" in cls_name:
-            counts["Motorcycles/Bikes"] += 1
+            counts["Bikes"] += 1
         elif "bus" in cls_name:
             counts["Buses"] += 1
-        elif "truck" in cls_name:
-            counts["Trucks"] += 1
+        elif "mask" in cls_name:
+            counts["Persons with Mask"] += 1
+        elif "disabled" in cls_name or "wheelchair" in cls_name:
+            counts["Disabled Persons"] += 1
+        elif "blind" in cls_name or "cane" in cls_name:
+            counts["Blind Persons"] += 1
         elif "person" in cls_name:
-            counts["Pedestrians"] += 1
-        else:
-            counts["Other"] += 1
+            counts["Persons"] += 1
+            
     return counts
 
 def render_audit_report_section():
@@ -299,7 +317,7 @@ if source_option == "Static Picture Upload":
 
         boxes = results[0].boxes.xyxy.cpu().numpy() if len(results[0].boxes) > 0 else np.array([])
         active_objects = len(boxes)
-        v_counts = classify_vehicles(boxes, model.names, results[0].boxes)
+        v_counts = classify_all_entities(boxes, results[0].boxes)
         current_risk = False
         min_dist = float("inf")
 
@@ -321,12 +339,12 @@ if source_option == "Static Picture Upload":
         warning_count = 0
         if current_risk:
             warning_count = 1
-            instruction_text = "Reduce speed immediately, increase following distance, and prepare to brake."
+            instruction_text = "Reduce speed immediately, yield to pedestrians/ambulances, and prepare to brake."
             cv2.putText(annotated, "WARNING: HAZARD PROXIMITY DETECTED", (25, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 3)
             status_alert.error("🚨 Collision risk detected in image!")
             show_hazard_popup(active_objects, min_dist)
         else:
-            instruction_text = "Traffic flow clear. Maintain safe speed and keep hands on the wheel."
+            instruction_text = "Traffic flow clear. Maintain safe speed and remain alert."
             status_alert.success("🟢 Scene stable. No immediate hazards.")
 
         metric_box_objects.metric("Active Objects Tracked", active_objects)
@@ -344,10 +362,13 @@ if source_option == "Static Picture Upload":
             "Timestamp (s)": 0.0,
             "Active Objects": active_objects,
             "Cars": v_counts["Cars"],
-            "Motorcycles/Bikes": v_counts["Motorcycles/Bikes"],
+            "Bikes": v_counts["Bikes"],
             "Buses": v_counts["Buses"],
-            "Trucks": v_counts["Trucks"],
-            "Pedestrians": v_counts["Pedestrians"],
+            "Ambulances": v_counts["Ambulances"],
+            "Persons": v_counts["Persons"],
+            "Persons with Mask": v_counts["Persons with Mask"],
+            "Disabled Persons": v_counts["Disabled Persons"],
+            "Blind Persons": v_counts["Blind Persons"],
             "Collision Risk Warning": "YES" if current_risk else "NO",
             "Warden Billu Instructions": instruction_text,
         })
@@ -383,7 +404,7 @@ elif source_option == "Upload Video File":
 
             boxes = results[0].boxes.xyxy.cpu().numpy() if len(results[0].boxes) > 0 else np.array([])
             active_objects = len(boxes)
-            v_counts = classify_vehicles(boxes, model.names, results[0].boxes)
+            v_counts = classify_all_entities(boxes, results[0].boxes)
             current_risk = False
             min_dist = float("inf")
 
@@ -404,7 +425,7 @@ elif source_option == "Upload Video File":
 
             if current_risk:
                 warning_count += 1
-                instruction_text = "Reduce speed immediately, engage brakes smoothly, and increase following distance."
+                instruction_text = "Reduce speed immediately, yield right-of-way, and increase following distance."
                 cv2.putText(annotated, "WARNING: HAZARD PROXIMITY DETECTED", (25, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 3)
                 status_alert.error("🚨 Collision risk detected in frame!")
                 if not popup_triggered:
@@ -420,10 +441,13 @@ elif source_option == "Upload Video File":
                 "Timestamp (s)": timestamp_sec,
                 "Active Objects": active_objects,
                 "Cars": v_counts["Cars"],
-                "Motorcycles/Bikes": v_counts["Motorcycles/Bikes"],
+                "Bikes": v_counts["Bikes"],
                 "Buses": v_counts["Buses"],
-                "Trucks": v_counts["Trucks"],
-                "Pedestrians": v_counts["Pedestrians"],
+                "Ambulances": v_counts["Ambulances"],
+                "Persons": v_counts["Persons"],
+                "Persons with Mask": v_counts["Persons with Mask"],
+                "Disabled Persons": v_counts["Disabled Persons"],
+                "Blind Persons": v_counts["Blind Persons"],
                 "Collision Risk Warning": "YES" if current_risk else "NO",
                 "Warden Billu Instructions": instruction_text,
             })
@@ -476,7 +500,7 @@ elif source_option == "Live Webcam":
 
             boxes = results[0].boxes.xyxy.cpu().numpy() if len(results[0].boxes) > 0 else np.array([])
             active_objects = len(boxes)
-            v_counts = classify_vehicles(boxes, model.names, results[0].boxes)
+            v_counts = classify_all_entities(boxes, results[0].boxes)
             current_risk = False
             min_dist = float("inf")
 
@@ -497,7 +521,7 @@ elif source_option == "Live Webcam":
 
             if current_risk:
                 warning_count += 1
-                instruction_text = "Slow down instantly, keep a 3-second gap, and stay defensive."
+                instruction_text = "Slow down instantly, watch for pedestrians/ambulances, and stay defensive."
                 cv2.putText(annotated, "WARNING: HAZARD PROXIMITY DETECTED", (25, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 3)
                 status_alert.error("🚨 Collision risk detected in live stream!")
                 if warning_count == 1:
@@ -512,10 +536,13 @@ elif source_option == "Live Webcam":
                 "Timestamp (s)": timestamp_sec,
                 "Active Objects": active_objects,
                 "Cars": v_counts["Cars"],
-                "Motorcycles/Bikes": v_counts["Motorcycles/Bikes"],
+                "Bikes": v_counts["Bikes"],
                 "Buses": v_counts["Buses"],
-                "Trucks": v_counts["Trucks"],
-                "Pedestrians": v_counts["Pedestrians"],
+                "Ambulances": v_counts["Ambulances"],
+                "Persons": v_counts["Persons"],
+                "Persons with Mask": v_counts["Persons with Mask"],
+                "Disabled Persons": v_counts["Disabled Persons"],
+                "Blind Persons": v_counts["Blind Persons"],
                 "Collision Risk Warning": "YES" if current_risk else "NO",
                 "Warden Billu Instructions": instruction_text,
             })
