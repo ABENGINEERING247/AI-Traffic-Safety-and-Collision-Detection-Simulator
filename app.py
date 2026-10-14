@@ -158,46 +158,45 @@ def get_model(model_name):
 
 model = get_model(selected_model)
 
-# --- HAZARD POPUP WITH BIG TRUCK ROLLING ANIMATION ---
-@st.dialog("🚨 BIG TRUCK & VEHICLE COLLISION HAZARD ALERT!", width="small")
+# --- HAZARD POPUP WITH HALF-PAGE TRUCK FRONT FACE ANIMATION ---
+@st.dialog("🚨 HEAVY TRUCK FRONT-FACE HAZARD ALERT!", width="large")
 def show_hazard_popup(active_objs, distance_val):
     st.markdown("""
         <style>
-        @keyframes truck-drive {
-            0% { transform: translateX(-120px) scale(0.9); }
-            50% { transform: translateX(20px) scale(1.1); filter: drop-shadow(0 0 15px #ff3333); }
-            100% { transform: translateX(120px) scale(0.9); }
+        @keyframes headlamp-flash {
+            0% { opacity: 0.1; filter: drop-shadow(0 0 2px #ff0000); }
+            50% { opacity: 1.0; filter: drop-shadow(0 0 25px #ff0000); }
+            100% { opacity: 0.1; filter: drop-shadow(0 0 2px #ff0000); }
         }
-        @keyframes wheel-spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .big-truck-container {
+        .truck-face-box {
+            background: linear-gradient(135deg, #162447, #1f4068);
+            border: 3px solid #ff3333;
+            border-radius: 12px;
+            padding: 20px;
             text-align: center;
-            overflow: hidden;
-            padding: 10px 0;
+            color: white;
+            box-shadow: 0 0 20px rgba(255, 51, 51, 0.5);
         }
-        .moving-truck {
-            animation: truck-drive 1.8s infinite ease-in-out;
-            font-size: 52px;
-            display: inline-block;
-        }
-        .rotating-wheels {
-            animation: wheel-spin 0.6s infinite linear;
-            display: inline-block;
+        .truck-ascii-face {
+            font-size: 64px;
+            animation: headlamp-flash 0.5s infinite ease-in-out;
+            margin: 10px 0;
+            letter-spacing: 5px;
         }
         </style>
         
-        <div class="big-truck-container">
-            <div class="moving-truck">🚛💨</div>
+        <div class="truck-face-box">
+            <div style="font-size: 14px; letter-spacing: 2px; color: #ff9999; font-weight: bold;">[ HEAD-ON PROXIMITY BREACH ]</div>
+            <div class="truck-ascii-face">🔴 🚚 🔴</div>
+            <div style="font-size: 16px; font-weight: bold; margin-top: 5px;">HEAVY TRUCK FRONT APPROACHING!</div>
         </div>
     """, unsafe_allow_html=True)
     
-    st.error("**Proximity Threshold Breached!**")
-    st.write(f"Detected close proximity involving heavy vehicles/trucks (Distance: **{int(distance_val)}px**).")
-    st.markdown("---")
-    st.info("👮‍♂️ **Warden Billu says:** *'Heavy truck in close range! Brake early and maintain extended following distance!'*")
-    if st.button("Acknowledge & Close Alert", type="primary", use_container_width=True):
+    st.markdown("")
+    st.error(f"**Critical Proximity Threshold Breached!** Distance detected: **{int(distance_val)}px**.")
+    st.info("👮‍♂️ **Warden Billu says:** *'Big truck incoming dead ahead! Flash your high beams, reduce speed immediately, and yield right-of-way!'*")
+    
+    if st.button("🚨 Acknowledge & Take Control", type="primary", use_container_width=True):
         st.rerun()
 
 # --- PDF GENERATOR FOR AUDIT LOGS ---
