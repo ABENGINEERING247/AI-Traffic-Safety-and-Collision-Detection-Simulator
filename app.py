@@ -22,7 +22,10 @@ st.set_page_config(
 if "simulation_logs" not in st.session_state:
     st.session_state.simulation_logs = []
 
-# --- ANIMATED WELCOME POPUP WITH BLINKING CAR HEADLIGHTS ---
+if "webcam_active" not in st.session_state:
+    st.session_state.webcam_active = False
+
+# --- ANIMATED WELCOME POPUP ---
 @st.dialog("🚗 Welcome to AI Traffic Safety Simulator", width="medium")
 def show_welcome_popup():
     st.markdown("""
@@ -47,7 +50,7 @@ def show_welcome_popup():
             <h2>🚦 Smart Road Safety & Hazard Detection</h2>
             <p>Powered by <b>YOLO26</b>, OpenCV, and <b>GPT Luna</b> 👮‍♂️</p>
             <div class="blinking-light">🔴 🚗 🔴</div>
-            <p style="font-size: 13px; color: gray;">Headlights are active. Monitoring system ready (Up to 400 MB support)!</p>
+            <p style="font-size: 13px; color: gray;">Headlights active. System ready!</p>
         </div>
     """, unsafe_allow_html=True)
     
@@ -64,7 +67,7 @@ if "welcomed" not in st.session_state:
 st.markdown("""
     <div style="background: linear-gradient(90deg, #1f4068, #162447); padding: 20px; border-radius: 10px; color: white; text-align: center; margin-bottom: 20px;">
         <h1 style="margin: 0; font-size: 32px;">🚥 AI TRAFFIC SAFETY & COLLISION SIMULATOR</h1>
-        <p style="margin: 5px 0 0 0; font-size: 15px; color: #e4e4e4;">Multi-Format Hazard Auditing (Up to 400MB), Specialized Entity Detection & GPT Luna Assistant</p>
+        <p style="margin: 5px 0 0 0; font-size: 15px; color: #e4e4e4;">Multi-Format Hazard Auditing, Entity Detection & GPT Luna Assistant</p>
     </div>
 """, unsafe_allow_html=True)
 
@@ -123,7 +126,7 @@ if billu_prompt := st.sidebar.chat_input("Ask Warden Billu a traffic question...
             response = client.chat.completions.create(
                 model="gpt-6-luna",
                 messages=st.session_state.billu_messages,
-                temperature=1.0,  # Set temperature to 1 as requested
+                temperature=1.0,
             )
             billu_reply = response.choices[0].message.content
             st.session_state.billu_messages.append({"role": "assistant", "content": billu_reply})
@@ -300,7 +303,29 @@ def render_audit_report_section():
     else:
         st.info("Audit log is currently empty.")
 
-# --- MULTI-FORMAT FILE UPLOADER (UP TO 400 MB) ---
+# Helper to open camera with cross-platform fallback logic
+def get_camera():
+    # Attempt 1: Standard DirectShow (Windows)
+    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    if cap.isOpened():
+        return cap
+    cap.release()
+
+    # Attempt 2: Standard Auto Index 0
+    cap = cv2.VideoCapture(0)
+    if cap.isOpened():
+        return cap
+    cap.release()
+
+    # Attempt 3: Index 1 (External Webcams)
+    cap = cv2.VideoCapture(1)
+    if cap.isOpened():
+        return cap
+    cap.release()
+    
+    return None
+
+# --- MULTI-FORMAT FILE UPLOADER ---
 if source_option == "Media / Document Upload (Up to 400MB)":
     uploaded_file = st.file_uploader(
         "Upload Traffic Image, Video, or Document (JPG, PNG, MP4, MOV, AVI, PDF, DOCX, TXT - Max 400MB)", 
@@ -489,39 +514,51 @@ if source_option == "Media / Document Upload (Up to 400MB)":
 
     render_audit_report_section()
 
-# --- C. LIVE WEBCAM FEED (START/STOP BUTTON CONTROLLED) ---
+# --- C. LIVE WEBCAM FEED ---
 elif source_option == "Live Webcam":
-    st.markdown("ℹ️ *Click the **Start Built-in Webcam Stream** button below to initialize your camera feed.*")
+    st.markdown("ℹ️ *Use the buttons below to control your built-in webcam stream.*")
     
     col_btn1, col_btn2 = st.columns(2)
     with col_btn1:
-        start_webcam = st.button("🔴 Start Built-in Webcam Stream", type="primary")
+        if st.button("🔴 Start Built-in Webcam Stream", type="primary"):
+            st.session_state.webcam_active = True
     with col_btn2:
-        stop_webcam = st.button("⏹️ Stop Webcam Stream")
-
-    if "webcam_active" not in st.session_state:
-        st.session_state.webcam_active = False
-
-    if start_webcam:
-        st.session_state.webcam_active = True
-    if stop_webcam:
-        st.session_state.webcam_active = False
+        if st.button("⏹️ Stop Webcam Stream"):
+            st.session_state.webcam_active = False
 
     if st.session_state.webcam_active:
-        cap = cv2.VideoCapture(0)
+        cap = get_camera()
         
-        if not cap.isOpened():
-            st.error("⚠️ Unable to access built-in laptop webcam. Please check permissions or device connection.")
-            st.session_state.webcam_active = False
+        if cap is None or not cap.isOpened():
+            st.error("⚠️ Local hardware webcam unavailable. Falling back to Browser Webcam input:")
+            img_file_buffer = st.camera_input("Take a snapshot from Browser Camera")
+            
+            if img_file_buffer is not None:
+                bytes_data = img_file_buffer.getvalue()
+                cv2_img = cv2.imdecode(np.frombuffer(bytes_data, np.uint8), cv2.IMREAD_COLOR)
+                
+                results = model(cv2_img, conf=conf_threshold, verbose=False)
+                annotated = results[0].plot()
+                
+                boxes = results[0].boxes.xyxy.cpu().numpy() if len(results[0].boxes) > 0 else np.array([])
+                active_objects = len(boxes)
+                v_counts = classify_all_entities(boxes, results[0].boxes)
+                
+                metric_box_objects.metric("Active Objects Tracked", active_objects)
+                update_breakdown_display(v_counts)
+                
+                annotated_rgb = cv2.cvtColor(annotated, cv2.COLOR_BGR2RGB)
+                media_placeholder.image(annotated_rgb, channels="RGB", use_container_width=True)
         else:
             frame_idx = 0
             warning_count = 0
             start_time = time.time()
 
-            while st.session_state.webcam_active and cap.isOpened():
+            # Stream frames continuously
+            while st.session_state.webcam_active:
                 ret, frame = cap.read()
                 if not ret:
-                    st.error("Failed to read frame from webcam stream.")
+                    st.error("Failed to read stream frame from camera.")
                     break
 
                 frame_idx += 1
@@ -555,11 +592,9 @@ elif source_option == "Live Webcam":
                     instruction_text = "Slow down instantly, watch for pedestrians/ambulances, and stay defensive."
                     cv2.putText(annotated, "WARNING: HAZARD PROXIMITY DETECTED", (25, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 3)
                     status_alert.error("🚨 Collision risk detected in live stream!")
-                    if warning_count == 1:
-                        show_hazard_popup(active_objects, min_dist)
                 else:
                     instruction_text = "Normal operation. Maintain regular safe speed limits."
-                    status_alert.success("🟢 Webcam feed stable.")
+                    status_alert.success("🟢 Webcam feed active.")
 
                 st.session_state.simulation_logs.append({
                     "Date & Time": current_datetime,
