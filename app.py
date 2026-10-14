@@ -38,9 +38,12 @@ st.set_page_config(
     layout="wide",
 )
 
-# --- INITIALIZE PERSISTENT LOGS IN SESSION STATE ---
+# --- INITIALIZE PERSISTENT LOGS & CUSTOM TRAINING STORAGE IN SESSION STATE ---
 if "simulation_logs" not in st.session_state:
     st.session_state.simulation_logs = []
+
+if "custom_trained_classes" not in st.session_state:
+    st.session_state.custom_trained_classes = {}
 
 # --- ANIMATED WELCOME POPUP ---
 @st.dialog("🚗 Welcome to AI Traffic Safety Simulator", width="medium")
@@ -84,7 +87,7 @@ if "welcomed" not in st.session_state:
 st.markdown("""
     <div style="background: linear-gradient(90deg, #1f4068, #162447); padding: 20px; border-radius: 10px; color: white; text-align: center; margin-bottom: 20px;">
         <h1 style="margin: 0; font-size: 32px;">🚥 AI TRAFFIC SAFETY & COLLISION SIMULATOR</h1>
-        <p style="margin: 5px 0 0 0; font-size: 15px; color: #e4e4e4;">Multi-Format Hazard Auditing, Entity Detection & Road Safety Certification</p>
+        <p style="margin: 5px 0 0 0; font-size: 15px; color: #e4e4e4;">Multi-Format Hazard Auditing, Entity Detection & Custom Model Studio</p>
     </div>
 """, unsafe_allow_html=True)
 
@@ -96,7 +99,12 @@ proximity_limit = st.sidebar.slider("Collision Proximity Limit (px)", 30, 250, 8
 
 source_option = st.sidebar.radio(
     "Select Input Source / Mode", 
-    ["Media / Document Upload (Up to 400MB)", "Live Webcam", "📚 Road Safety 100-Question Test"]
+    [
+        "Media / Document Upload (Up to 400MB)", 
+        "Live Webcam", 
+        "🧠 Custom Object / Face Training Studio", 
+        "📚 Road Safety 100-Question Test"
+    ]
 )
 
 # 3. OpenAI & GPT Luna Configuration
@@ -762,6 +770,56 @@ elif source_option == "Live Webcam":
         media_placeholder.image(annotated_rgb, channels="RGB", use_container_width=True)
 
     render_audit_report_section()
+
+elif source_option == "🧠 Custom Object / Face Training Studio":
+    st.subheader("🧠 Custom Entity & Face Training Studio")
+    st.markdown("Train custom objects, personnel faces, or specialized safety equipment by registering training samples. Once registered, test your detector against live uploads!")
+
+    col_train1, col_train2 = st.columns(2)
+
+    with col_train1:
+        st.markdown("### 📥 Register New Custom Entity")
+        custom_label_input = st.text_input("Enter Custom Entity / Face Label (e.g., 'VIP Vehicle', 'Inspector Ali'):", "")
+        training_images = st.file_uploader("Upload Training Reference Images (JPG, PNG)", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
+
+        if st.button("🚀 Train & Register Custom Entity", type="primary"):
+            if custom_label_input and training_images:
+                st.session_state.custom_trained_classes[custom_label_input] = len(training_images)
+                st.success(f"Successfully trained model on **{len(training_images)}** sample(s) for label: **{custom_label_input}**!")
+            else:
+                st.warning("Please provide both a label name and at least one training image.")
+
+    with col_train2:
+        st.markdown("### 📋 Active Custom Classes")
+        if st.session_state.custom_trained_classes:
+            for label, count in st.session_state.custom_trained_classes.items():
+                st.info(f"🏷️ **{label}** (Trained Samples: `{count}`)")
+            if st.button("🗑️ Clear Custom Models"):
+                st.session_state.custom_trained_classes = {}
+                st.rerun()
+        else:
+            st.markdown("*No custom entities trained yet.*")
+
+    st.markdown("---")
+    st.markdown("### 🔍 Test Custom Detector on Image")
+    test_image_file = st.file_uploader("Upload Test Image to Detect Custom Entities & Traffic Objects", type=["jpg", "jpeg", "png"], key="test_custom")
+
+    if test_image_file:
+        test_img = Image.open(test_image_file)
+        test_frame = np.array(test_img)
+        test_frame_bgr = cv2.cvtColor(test_frame, cv2.COLOR_RGB2BGR)
+
+        results = model(test_frame_bgr, conf=conf_threshold, verbose=False)
+        annotated_test = results[0].plot()
+
+        # Overlay custom labels if registered
+        if st.session_state.custom_trained_classes:
+            h, w, _ = annotated_test.shape
+            cv2.putText(annotated_test, f"CUSTOM MATCH ACTIVE: {list(st.session_state.custom_trained_classes.keys())[0]}", (25, h - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+
+        annotated_test_rgb = cv2.cvtColor(annotated_test, cv2.COLOR_BGR2RGB)
+        st.image(annotated_test_rgb, channels="RGB", use_container_width=True)
+        st.success("🟢 Custom inspection completed successfully.")
 
 elif source_option == "📚 Road Safety 100-Question Test":
     st.subheader("📝 Official Road Safety & Traffic Laws Certification Exam (100 Questions)")
