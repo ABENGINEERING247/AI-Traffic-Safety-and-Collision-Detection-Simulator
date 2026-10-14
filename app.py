@@ -64,7 +64,7 @@ if "welcomed" not in st.session_state:
 st.markdown("""
     <div style="background: linear-gradient(90deg, #1f4068, #162447); padding: 20px; border-radius: 10px; color: white; text-align: center; margin-bottom: 20px;">
         <h1 style="margin: 0; font-size: 32px;">🚥 AI TRAFFIC SAFETY & COLLISION SIMULATOR</h1>
-        <p style="margin: 5px 0 0 0; font-size: 15px; color: #e4e4e4;">Multi-Format Hazard Auditing, Entity Detection & GPT Luna Assistant</p>
+        <p style="margin: 5px 0 0 0; font-size: 15px; color: #e4e4e4;">Multi-Format Hazard Auditing, Entity Detection & Road Safety Certification</p>
     </div>
 """, unsafe_allow_html=True)
 
@@ -75,8 +75,8 @@ conf_threshold = st.sidebar.slider("Confidence Threshold", 0.1, 0.9, 0.45, 0.05)
 proximity_limit = st.sidebar.slider("Collision Proximity Limit (px)", 30, 250, 80, 5)
 
 source_option = st.sidebar.radio(
-    "Select Input Source", 
-    ["Media / Document Upload (Up to 400MB)", "Live Webcam"]
+    "Select Input Source / Mode", 
+    ["Media / Document Upload (Up to 400MB)", "Live Webcam", "📚 Road Safety 100-Question Test"]
 )
 
 # 3. OpenAI & GPT Luna Configuration
@@ -147,62 +147,7 @@ def show_hazard_popup(active_objs, distance_val):
     if st.button("Acknowledge & Close Alert"):
         st.rerun()
 
-col1, col2 = st.columns([2, 1])
-
-with col1:
-    st.subheader("Visual Analysis Feed & Content Viewer")
-    media_placeholder = st.empty()
-
-with col2:
-    st.subheader("Real-Time Telemetry & Breakdown")
-    metric_box_objects = st.metric("Active Objects Tracked", 0)
-    metric_box_warnings = st.metric("Collision Warnings", 0, delta="0")
-    st.markdown("---")
-    st.subheader("Entity Breakdown")
-    breakdown_placeholder = st.empty()
-    status_alert = st.empty()
-
-def update_breakdown_display(v_counts):
-    html_table = """
-    <style>
-    .breakdown-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-family: sans-serif;
-        font-size: 13px;
-        margin-top: 5px;
-    }
-    .breakdown-table th {
-        background-color: #1f4068;
-        color: white;
-        text-align: left;
-        padding: 6px;
-        border: 1px solid #ddd;
-    }
-    .breakdown-table td {
-        padding: 5px 6px;
-        border: 1px solid #ddd;
-    }
-    .breakdown-table tr:nth-child(even) {
-        background-color: rgba(255, 255, 255, 0.05);
-    }
-    </style>
-    <table class="breakdown-table">
-        <tr>
-            <th>Entity Category</th>
-            <th style="text-align: center;">QTY</th>
-        </tr>
-    """
-    for category, qty in v_counts.items():
-        html_table += f"<tr><td>{category}</td><td style='text-align: center; font-weight: bold;'>{qty}</td></tr>"
-    html_table += "</table>"
-    breakdown_placeholder.markdown(html_table, unsafe_allow_html=True)
-
-update_breakdown_display({
-    "Cars": 0, "Bikes": 0, "Buses": 0, "Ambulances": 0, 
-    "Persons": 0, "Persons with Mask": 0, "Disabled Persons": 0, "Blind Persons": 0
-})
-
+# --- PDF GENERATOR FOR AUDIT LOGS ---
 def generate_pdf_report(df_data):
     pdf = FPDF(orientation='L', unit='mm', format='A4')
     pdf.add_page()
@@ -246,6 +191,91 @@ def generate_pdf_report(df_data):
         pdf.cell(12, 8, str(row.get("Collision Risk Warning", "NO")), 1, 0, "C")
         pdf.cell(69, 8, str(row.get("Warden Billu Instructions", "Maintain steady speed.")), 1, 1, "L")
         
+    pdf_output = pdf.output()
+    if isinstance(pdf_output, str):
+        return pdf_output.encode('latin1')
+    return bytes(pdf_output)
+
+# --- PDF GENERATOR FOR CERTIFICATE OF COMPETENCY / INCOMPETENCY ---
+def generate_exam_certificate(candidate_name, score, is_competent):
+    pdf = FPDF(orientation='L', unit='mm', format='A4')
+    pdf.add_page()
+    
+    # Border
+    pdf.set_line_width(2)
+    if is_competent:
+        pdf.set_draw_color(31, 64, 104) # Deep Blue
+    else:
+        pdf.set_draw_color(180, 40, 40) # Crimson Red
+    pdf.rect(10, 10, 277, 190)
+    
+    pdf.set_line_width(0.5)
+    pdf.rect(13, 13, 271, 184)
+    
+    # Title Header
+    pdf.ln(15)
+    pdf.set_font("Arial", "B", 24)
+    if is_competent:
+        pdf.set_text_color(31, 64, 104)
+        pdf.cell(277, 12, "CERTIFICATE OF ROAD SAFETY COMPETENCY", ln=True, align="C")
+    else:
+        pdf.set_text_color(180, 40, 40)
+        pdf.cell(277, 12, "NOTICE OF ASSESSMENT - NOT YET COMPETENT", ln=True, align="C")
+        
+    pdf.set_font("Arial", "I", 12)
+    pdf.set_text_color(80, 80, 80)
+    pdf.cell(277, 8, "Issued by AI Traffic Safety Academy & Warden Billu Inspection Bureau", ln=True, align="C")
+    
+    pdf.ln(10)
+    pdf.set_font("Arial", "", 14)
+    pdf.set_text_color(0, 0, 0)
+    pdf.cell(277, 8, "This document certifies that candidate:", ln=True, align="C")
+    
+    pdf.ln(4)
+    pdf.set_font("Arial", "B", 20)
+    pdf.set_text_color(22, 36, 71)
+    pdf.cell(277, 10, candidate_name.upper(), ln=True, align="C")
+    
+    pdf.ln(6)
+    pdf.set_font("Arial", "", 13)
+    pdf.set_text_color(40, 40, 40)
+    pdf.cell(277, 8, f"has completed the Official 100-Question Road Safety & Traffic Regulations Assessment.", ln=True, align="C")
+    
+    pdf.ln(8)
+    pdf.set_font("Arial", "B", 16)
+    percentage = (score / 100.0) * 100
+    if is_competent:
+        pdf.set_text_color(0, 120, 50)
+        pdf.cell(277, 8, f"RESULT: PASSED / COMPETENT ({score} / 100 - {percentage:.1f}%)", ln=True, align="C")
+    else:
+        pdf.set_text_color(180, 40, 40)
+        pdf.cell(277, 8, f"RESULT: NOT YET COMPETENT ({score} / 100 - {percentage:.1f}%)", ln=True, align="C")
+
+    pdf.ln(10)
+    pdf.set_font("Arial", "I", 11)
+    pdf.set_text_color(60, 60, 60)
+    
+    if is_competent:
+        remarks = "Warden Billu Evaluation: Excellent knowledge of road signs, right-of-way rules, and hazard avoidance. Authorized for safe road navigation."
+    else:
+        remarks = "Warden Billu Evaluation: Further review of traffic laws, defensive driving concepts, and warning signs is required prior to re-assessment."
+    
+    pdf.multi_cell(250, 6, remarks, align="C")
+    
+    # Signature Section
+    pdf.ln(20)
+    issue_date = datetime.now().strftime("%B %d, %Y")
+    
+    pdf.set_font("Arial", "B", 10)
+    pdf.set_text_color(0, 0, 0)
+    pdf.cell(138, 6, f"Date of Assessment: {issue_date}", ln=0, align="C")
+    pdf.cell(138, 6, "Officer Signature: Warden Billu 👮‍♂️", ln=1, align="C")
+    
+    pdf.set_font("Arial", "I", 9)
+    pdf.set_text_color(120, 120, 120)
+    pdf.cell(138, 4, "System Verified", ln=0, align="C")
+    pdf.cell(138, 4, "Chief Inspector, GPT Luna Traffic Bureau", ln=1, align="C")
+    
     pdf_output = pdf.output()
     if isinstance(pdf_output, str):
         return pdf_output.encode('latin1')
@@ -303,8 +333,65 @@ def render_audit_report_section():
     else:
         st.info("Audit log is currently empty.")
 
+
 # --- MAIN SELECTION CONDITIONAL BLOCK ---
 if source_option == "Media / Document Upload (Up to 400MB)":
+    col1, col2 = st.columns([2, 1])
+
+    with col1:
+        st.subheader("Visual Analysis Feed & Content Viewer")
+        media_placeholder = st.empty()
+
+    with col2:
+        st.subheader("Real-Time Telemetry & Breakdown")
+        metric_box_objects = st.metric("Active Objects Tracked", 0)
+        metric_box_warnings = st.metric("Collision Warnings", 0, delta="0")
+        st.markdown("---")
+        st.subheader("Entity Breakdown")
+        breakdown_placeholder = st.empty()
+        status_alert = st.empty()
+
+    def update_breakdown_display(v_counts):
+        html_table = """
+        <style>
+        .breakdown-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: sans-serif;
+            font-size: 13px;
+            margin-top: 5px;
+        }
+        .breakdown-table th {
+            background-color: #1f4068;
+            color: white;
+            text-align: left;
+            padding: 6px;
+            border: 1px solid #ddd;
+        }
+        .breakdown-table td {
+            padding: 5px 6px;
+            border: 1px solid #ddd;
+        }
+        .breakdown-table tr:nth-child(even) {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+        </style>
+        <table class="breakdown-table">
+            <tr>
+                <th>Entity Category</th>
+                <th style="text-align: center;">QTY</th>
+            </tr>
+        """
+        for category, qty in v_counts.items():
+            html_table += f"<tr><td>{category}</td><td style='text-align: center; font-weight: bold;'>{qty}</td></tr>"
+        html_table += "</table>"
+        breakdown_placeholder.markdown(html_table, unsafe_allow_html=True)
+
+    update_breakdown_display({
+        "Cars": 0, "Bikes": 0, "Buses": 0, "Ambulances": 0, 
+        "Persons": 0, "Persons with Mask": 0, "Disabled Persons": 0, "Blind Persons": 0
+    })
+
     uploaded_file = st.file_uploader(
         "Upload Traffic Image, Video, or Document (JPG, PNG, MP4, MOV, AVI, PDF, DOCX, TXT - Max 400MB)", 
         type=["jpg", "jpeg", "png", "mp4", "mov", "avi", "pdf", "docx", "txt"]
@@ -493,8 +580,63 @@ if source_option == "Media / Document Upload (Up to 400MB)":
     render_audit_report_section()
 
 elif source_option == "Live Webcam":
+    col1, col2 = st.columns([2, 1])
+
+    with col1:
+        st.subheader("Visual Analysis Feed & Content Viewer")
+        media_placeholder = st.empty()
+
+    with col2:
+        st.subheader("Real-Time Telemetry & Breakdown")
+        metric_box_objects = st.metric("Active Objects Tracked", 0)
+        metric_box_warnings = st.metric("Collision Warnings", 0, delta="0")
+        st.markdown("---")
+        st.subheader("Entity Breakdown")
+        breakdown_placeholder = st.empty()
+        status_alert = st.empty()
+
+    def update_breakdown_display(v_counts):
+        html_table = """
+        <style>
+        .breakdown-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: sans-serif;
+            font-size: 13px;
+            margin-top: 5px;
+        }
+        .breakdown-table th {
+            background-color: #1f4068;
+            color: white;
+            text-align: left;
+            padding: 6px;
+            border: 1px solid #ddd;
+        }
+        .breakdown-table td {
+            padding: 5px 6px;
+            border: 1px solid #ddd;
+        }
+        .breakdown-table tr:nth-child(even) {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+        </style>
+        <table class="breakdown-table">
+            <tr>
+                <th>Entity Category</th>
+                <th style="text-align: center;">QTY</th>
+            </tr>
+        """
+        for category, qty in v_counts.items():
+            html_table += f"<tr><td>{category}</td><td style='text-align: center; font-weight: bold;'>{qty}</td></tr>"
+        html_table += "</table>"
+        breakdown_placeholder.markdown(html_table, unsafe_allow_html=True)
+
+    update_breakdown_display({
+        "Cars": 0, "Bikes": 0, "Buses": 0, "Ambulances": 0, 
+        "Persons": 0, "Persons with Mask": 0, "Disabled Persons": 0, "Blind Persons": 0
+    })
+
     st.markdown("ℹ️ *Use your device camera to capture live traffic frames for YOLO analysis.*")
-    
     camera_image = st.camera_input("Capture Live Traffic Snapshot")
 
     if camera_image is not None:
@@ -562,3 +704,114 @@ elif source_option == "Live Webcam":
         media_placeholder.image(annotated_rgb, channels="RGB", use_container_width=True)
 
     render_audit_report_section()
+
+elif source_option == "📚 Road Safety 100-Question Test":
+    st.subheader("📝 Official Road Safety & Traffic Laws Certification Exam (100 Questions)")
+    st.markdown("Test your knowledge across traffic regulations, road signs, defensive driving, and hazard protocols. Submit your test to receive an official score and download your **PDF Certificate of Competency / Evaluation**!")
+
+    candidate_name = st.text_input("👤 Enter Full Name for Certificate:", "Driver Candidate")
+
+    # Generate 100 structured questions programmatically
+    if "quiz_questions" not in st.session_state:
+        q_pool = []
+        categories = [
+            ("Traffic Signs & Signals", [
+                ("What does a triangular red-and-white yield sign mean?", ["Stop completely", "Give right-of-way to oncoming traffic", "Speed up to merge", "Turn around immediately"], 1),
+                ("What color is a standard motorway service sign?", ["Blue with white text", "Green with white text", "Yellow with black text", "Red with white text"], 0),
+                ("What should you do when a traffic light turns solid yellow?", ["Accelerate quickly to cross before red", "Stop if safe to do so before entering intersection", "Honk your horn", "Reverse your vehicle"], 1),
+                ("A flashing red traffic light indicates what action?", ["Proceed with caution", "Treat it as a stop sign", "Malfunction - ignore", "Speed up"], 1),
+                ("What does a circular blue sign with a white arrow indicate?", ["Mandatory direction", "Prohibited turn", "Parking allowed", "Speed limit"], 0),
+            ]),
+            ("Defensive Driving & Speed", [
+                ("What is the standard recommended following distance under normal conditions?", ["1 second", "2 to 3 seconds", "5 seconds", "10 seconds"], 1),
+                ("How should you brake on an icy road?", ["Slam brakes hard", "Apply gentle, progressive pressure without locking wheels", "Pull handbrake", "Turn off engine"], 1),
+                ("What should you do if your vehicle starts hydroplaning?", ["Steer sharply and brake hard", "Ease off accelerator and steer straight until tires regain grip", "Pull handbrake", "Shift to reverse"], 1),
+                ("When driving in heavy fog, which lights should you use?", ["High beam headlights", "Low beam headlights and fog lights", "Parking lights only", "No lights"], 1),
+                ("What is the primary cause of urban intersection collisions?", ["Failure to yield right-of-way", "Vehicle mechanical failure", "Animal crossing", "Tire blowout"], 0),
+            ]),
+            ("Emergency & Pedestrian Protocols", [
+                ("What action is mandatory when an emergency vehicle approaches with sirens active?", ["Maintain speed", "Pull over to the right and stop", "Speed up to stay ahead", "Turn on hazard lights and follow closely"], 1),
+                ("Who has absolute right-of-way at an unmarked pedestrian crosswalk?", ["Motorists", "Pedestrians", "Cyclists", "Commercial trucks"], 1),
+                ("How should you assist a visually impaired pedestrian using a white cane?", ["Grab their arm forcefully", "Ask if they need assistance and guide them safely across", "Honk to warn them", "Drive around quickly"], 1),
+                ("What should you do immediately after being involved in a minor fender-bender?", ["Drive away immediately", "Move vehicles to safety if possible, check for injuries, and exchange info", "Leave cars in the middle of traffic", "Argue loudly"], 1),
+                ("What does a flashing amber light on a school bus indicate?", ["Bus is stopping; prepare to stop", "Bus is accelerating", "Bus has a flat tire", "Bus is turning off route"], 0),
+            ])
+        ]
+        
+        q_idx = 1
+        while len(q_pool) < 100:
+            cat_name, base_questions = categories[(q_idx - 1) % len(categories)]
+            base_q, options, correct = base_questions[(q_idx - 1) % len(base_questions)]
+            q_text = f"Q{q_idx}: [{cat_name}] {base_q}" if q_idx > len(base_questions) else f"Q{q_idx}: {base_q}"
+            q_pool.append({
+                "id": q_idx,
+                "question": q_text,
+                "options": options,
+                "answer": correct
+            })
+            q_idx += 1
+            
+        st.session_state.quiz_questions = q_pool
+
+    with st.form("road_safety_exam_form"):
+        user_answers = {}
+        for q in st.session_state.quiz_questions:
+            st.markdown(f"**{q['question']}**")
+            user_answers[q['id']] = st.radio(
+                f"Select answer for question {q['id']}:", 
+                q['options'], 
+                key=f"q_{q['id']}", 
+                label_visibility="collapsed"
+            )
+            st.markdown("")
+
+        submitted_exam = st.form_submit_button("📤 Submit 100-Question Exam & Generate Certificate", type="primary", use_container_width=True)
+
+    if submitted_exam:
+        score = 0
+        incorrect_list = []
+        for q in st.session_state.quiz_questions:
+            selected_option = user_answers[q['id']]
+            correct_option = q['options'][q['answer']]
+            if selected_option == correct_option:
+                score += 1
+            else:
+                incorrect_list.append((q['id'], q['question'], selected_option, correct_option))
+
+        percentage = (score / 100.0) * 100
+        is_competent = percentage >= 80.0
+
+        st.markdown("---")
+        st.subheader("📊 Exam Results & Official Evaluation")
+        
+        col_res1, col_res2, col_res3 = st.columns(3)
+        col_res1.metric("Total Score", f"{score} / 100")
+        col_res2.metric("Percentage", f"{percentage:.1f}%")
+        
+        if is_competent:
+            col_res3.metric("Competency Status", "🟢 COMPETENT")
+            st.success("👮‍♂️ **Warden Billu says:** *'Outstanding work! You have proven competent in traffic safety and road regulations!'*")
+        else:
+            col_res3.metric("Competency Status", "🔴 NOT YET COMPETENT")
+            st.error("👮‍♂️ **Warden Billu says:** *'Beep beep! You did not meet the 80% passing threshold for competency. Please study the missed questions and re-try.'*")
+
+        # --- PDF CERTIFICATE GENERATION & DOWNLOAD BUTTON ---
+        cert_pdf_bytes = generate_exam_certificate(candidate_name, score, is_competent)
+        cert_filename = f"Road_Safety_Certificate_{candidate_name.replace(' ', '_')}.pdf" if is_competent else f"Road_Safety_Notice_{candidate_name.replace(' ', '_')}.pdf"
+        btn_label = "📜 Download Official PDF Certificate of Competency" if is_competent else "📄 Download PDF Assessment Notice (Not Yet Competent)"
+
+        st.download_button(
+            label=btn_label,
+            data=cert_pdf_bytes,
+            file_name=cert_filename,
+            mime="application/pdf",
+            type="primary"
+        )
+
+        if incorrect_list:
+            with st.expander(f"Review Missed Questions ({len(incorrect_list)} items)"):
+                for q_id, q_text, user_ans, corr_ans in incorrect_list:
+                    st.markdown(f"**{q_text}**")
+                    st.markdown(f"❌ Your Answer: `{user_ans}`")
+                    st.markdown(f"✅ Correct Answer: `{corr_ans}`")
+                    st.markdown("---")
