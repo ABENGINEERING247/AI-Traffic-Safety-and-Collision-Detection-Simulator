@@ -246,7 +246,10 @@ def generate_pdf_report(df_data):
         pdf.cell(12, 8, str(row.get("Collision Risk Warning", "NO")), 1, 0, "C")
         pdf.cell(69, 8, str(row.get("Warden Billu Instructions", "Maintain steady speed.")), 1, 1, "L")
         
-    return pdf.output(dest='S').encode('latin1')
+    pdf_output = pdf.output()
+    if isinstance(pdf_output, str):
+        return pdf_output.encode('latin1')
+    return bytes(pdf_output)
 
 def classify_all_entities(boxes, result_boxes):
     counts = {
