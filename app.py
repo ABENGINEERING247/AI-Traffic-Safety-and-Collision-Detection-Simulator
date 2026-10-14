@@ -66,7 +66,7 @@ def show_welcome_popup():
         <div class="welcome-banner">
             <h2>🚦 Smart Road Safety & Hazard Detection</h2>
             <p>Powered by <b>YOLO26</b>, OpenCV, and <b>GPT Luna</b> 👮‍♂️</p>
-            <div class="blinking-light">🔴 🚗 🔴</div>
+            <div class="blinking-light">🔴 🚛 🔴</div>
             <p style="font-size: 13px; color: gray;">Headlights active. System ready!</p>
         </div>
     """, unsafe_allow_html=True)
@@ -158,30 +158,45 @@ def get_model(model_name):
 
 model = get_model(selected_model)
 
-# --- HAZARD POPUP WITH ANIMATED BLINKING LIGHTS ---
-@st.dialog("🚨 VEHICLE & TRUCK COLLISION HAZARD ALERT!", width="small")
+# --- HAZARD POPUP WITH BIG TRUCK ROLLING ANIMATION ---
+@st.dialog("🚨 BIG TRUCK & VEHICLE COLLISION HAZARD ALERT!", width="small")
 def show_hazard_popup(active_objs, distance_val):
     st.markdown("""
         <style>
-        @keyframes hazard-blink {
-            0% { opacity: 0.2; transform: scale(0.9); filter: drop-shadow(0 0 2px #ff0000); }
-            50% { opacity: 1.0; transform: scale(1.15); filter: drop-shadow(0 0 15px #ff0000); }
-            100% { opacity: 0.2; transform: scale(0.9); filter: drop-shadow(0 0 2px #ff0000); }
+        @keyframes truck-drive {
+            0% { transform: translateX(-120px) scale(0.9); }
+            50% { transform: translateX(20px) scale(1.1); filter: drop-shadow(0 0 15px #ff3333); }
+            100% { transform: translateX(120px) scale(0.9); }
         }
-        .hazard-blinking-light {
-            animation: hazard-blink 0.6s infinite ease-in-out;
-            font-size: 38px;
+        @keyframes wheel-spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .big-truck-container {
             text-align: center;
-            margin-bottom: 10px;
+            overflow: hidden;
+            padding: 10px 0;
+        }
+        .moving-truck {
+            animation: truck-drive 1.8s infinite ease-in-out;
+            font-size: 52px;
+            display: inline-block;
+        }
+        .rotating-wheels {
+            animation: wheel-spin 0.6s infinite linear;
+            display: inline-block;
         }
         </style>
-        <div class="hazard-blinking-light">🔴 🚛 🚗 🔴</div>
+        
+        <div class="big-truck-container">
+            <div class="moving-truck">🚛💨</div>
+        </div>
     """, unsafe_allow_html=True)
     
     st.error("**Proximity Threshold Breached!**")
-    st.write(f"Detected close proximity between vehicles/trucks (Distance: **{int(distance_val)}px**).")
+    st.write(f"Detected close proximity involving heavy vehicles/trucks (Distance: **{int(distance_val)}px**).")
     st.markdown("---")
-    st.info("👮‍♂️ **Warden Billu says:** *'Slow down immediately, maintain safe braking distance, and watch out for heavy trucks!'*")
+    st.info("👮‍♂️ **Warden Billu says:** *'Heavy truck in close range! Brake early and maintain extended following distance!'*")
     if st.button("Acknowledge & Close Alert", type="primary", use_container_width=True):
         st.rerun()
 
