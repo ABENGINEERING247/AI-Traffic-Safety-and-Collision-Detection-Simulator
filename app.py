@@ -158,13 +158,31 @@ def get_model(model_name):
 
 model = get_model(selected_model)
 
-@st.dialog("🚨 CAR COLLISION HAZARD POPUP ALERT!", width="small")
+# --- HAZARD POPUP WITH ANIMATED BLINKING LIGHTS ---
+@st.dialog("🚨 VEHICLE & TRUCK COLLISION HAZARD ALERT!", width="small")
 def show_hazard_popup(active_objs, distance_val):
+    st.markdown("""
+        <style>
+        @keyframes hazard-blink {
+            0% { opacity: 0.2; transform: scale(0.9); filter: drop-shadow(0 0 2px #ff0000); }
+            50% { opacity: 1.0; transform: scale(1.15); filter: drop-shadow(0 0 15px #ff0000); }
+            100% { opacity: 0.2; transform: scale(0.9); filter: drop-shadow(0 0 2px #ff0000); }
+        }
+        .hazard-blinking-light {
+            animation: hazard-blink 0.6s infinite ease-in-out;
+            font-size: 38px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        </style>
+        <div class="hazard-blinking-light">🔴 🚛 🚗 🔴</div>
+    """, unsafe_allow_html=True)
+    
     st.error("**Proximity Threshold Breached!**")
-    st.write(f"Detected close vehicle/object proximity (Distance: **{int(distance_val)}px**).")
+    st.write(f"Detected close proximity between vehicles/trucks (Distance: **{int(distance_val)}px**).")
     st.markdown("---")
-    st.info("👮‍♂️ **Warden Billu says:** *'Slow down immediately, maintain safe braking distance, and yield right-of-way!'*")
-    if st.button("Acknowledge & Close Alert"):
+    st.info("👮‍♂️ **Warden Billu says:** *'Slow down immediately, maintain safe braking distance, and watch out for heavy trucks!'*")
+    if st.button("Acknowledge & Close Alert", type="primary", use_container_width=True):
         st.rerun()
 
 # --- PDF GENERATOR FOR AUDIT LOGS ---
@@ -183,33 +201,35 @@ def generate_pdf_report(df_data):
     pdf.set_font("Helvetica", "B", 8)
     pdf.cell(15, 8, "Frm/ID", 1, 0, "C")
     pdf.cell(32, 8, "Date & Time", 1, 0, "C")
-    pdf.cell(12, 8, "Tot", 1, 0, "C")
-    pdf.cell(12, 8, "Car", 1, 0, "C")
-    pdf.cell(12, 8, "Bike", 1, 0, "C")
-    pdf.cell(12, 8, "Bus", 1, 0, "C")
-    pdf.cell(15, 8, "Amb", 1, 0, "C")
+    pdf.cell(10, 8, "Tot", 1, 0, "C")
+    pdf.cell(10, 8, "Car", 1, 0, "C")
+    pdf.cell(12, 8, "Truck", 1, 0, "C")
+    pdf.cell(10, 8, "Bike", 1, 0, "C")
+    pdf.cell(10, 8, "Bus", 1, 0, "C")
+    pdf.cell(12, 8, "Amb", 1, 0, "C")
     pdf.cell(15, 8, "Person", 1, 0, "C")
-    pdf.cell(18, 8, "Masked", 1, 0, "C")
+    pdf.cell(16, 8, "Masked", 1, 0, "C")
     pdf.cell(15, 8, "Disabled", 1, 0, "C")
     pdf.cell(15, 8, "Blind", 1, 0, "C")
     pdf.cell(12, 8, "Risk?", 1, 0, "C")
-    pdf.cell(69, 8, "Warden Billu Instructions", 1, 1, "C")
+    pdf.cell(85, 8, "Warden Billu Instructions", 1, 1, "C")
     
     pdf.set_font("Helvetica", "", 7)
     for index, row in df_data.head(50).iterrows():
         pdf.cell(15, 8, strip_emojis(str(row.get("Frame / File", row.get("Frame", 1)))), 1, 0, "C")
         pdf.cell(32, 8, strip_emojis(str(row.get("Date & Time", ""))), 1, 0, "C")
-        pdf.cell(12, 8, str(row.get("Active Objects", 0)), 1, 0, "C")
-        pdf.cell(12, 8, str(row.get("Cars", 0)), 1, 0, "C")
-        pdf.cell(12, 8, str(row.get("Bikes", 0)), 1, 0, "C")
-        pdf.cell(12, 8, str(row.get("Buses", 0)), 1, 0, "C")
-        pdf.cell(15, 8, str(row.get("Ambulances", 0)), 1, 0, "C")
+        pdf.cell(10, 8, str(row.get("Active Objects", 0)), 1, 0, "C")
+        pdf.cell(10, 8, str(row.get("Cars", 0)), 1, 0, "C")
+        pdf.cell(12, 8, str(row.get("Trucks", 0)), 1, 0, "C")
+        pdf.cell(10, 8, str(row.get("Bikes", 0)), 1, 0, "C")
+        pdf.cell(10, 8, str(row.get("Buses", 0)), 1, 0, "C")
+        pdf.cell(12, 8, str(row.get("Ambulances", 0)), 1, 0, "C")
         pdf.cell(15, 8, str(row.get("Persons", 0)), 1, 0, "C")
-        pdf.cell(18, 8, str(row.get("Persons with Mask", 0)), 1, 0, "C")
+        pdf.cell(16, 8, str(row.get("Persons with Mask", 0)), 1, 0, "C")
         pdf.cell(15, 8, str(row.get("Disabled Persons", 0)), 1, 0, "C")
         pdf.cell(15, 8, str(row.get("Blind Persons", 0)), 1, 0, "C")
         pdf.cell(12, 8, str(row.get("Collision Risk Warning", "NO")), 1, 0, "C")
-        pdf.cell(69, 8, strip_emojis(str(row.get("Warden Billu Instructions", "Maintain steady speed."))), 1, 1, "L")
+        pdf.cell(85, 8, strip_emojis(str(row.get("Warden Billu Instructions", "Maintain steady speed."))), 1, 1, "L")
         
     pdf_output = pdf.output()
     if isinstance(pdf_output, str):
@@ -276,9 +296,9 @@ def generate_exam_certificate(candidate_name, score, is_competent):
     pdf.set_text_color(60, 60, 60)
     
     if is_competent:
-        remarks = "Warden Billu Evaluation: Excellent knowledge of road signs, right-of-way rules, and hazard avoidance. Authorized for safe road navigation."
+        remarks = "Warden Billu Evaluation: Excellent knowledge of road signs, truck blind spots, right-of-way rules, and hazard avoidance."
     else:
-        remarks = "Warden Billu Evaluation: Further review of traffic laws, defensive driving concepts, and warning signs is required prior to re-assessment."
+        remarks = "Warden Billu Evaluation: Further review of traffic laws, heavy truck safety margins, and defensive driving is required prior to re-assessment."
     
     pdf.multi_cell(250, 6, remarks, align="C")
     
@@ -302,7 +322,7 @@ def generate_exam_certificate(candidate_name, score, is_competent):
 
 def classify_all_entities(boxes, result_boxes):
     counts = {
-        "Cars": 0, "Bikes": 0, "Buses": 0, "Ambulances": 0, 
+        "Cars": 0, "Trucks": 0, "Bikes": 0, "Buses": 0, "Ambulances": 0, 
         "Persons": 0, "Persons with Mask": 0, "Disabled Persons": 0, "Blind Persons": 0
     }
     for box in result_boxes:
@@ -311,6 +331,8 @@ def classify_all_entities(boxes, result_boxes):
         
         if "ambulance" in cls_name:
             counts["Ambulances"] += 1
+        elif "truck" in cls_name or "lorry" in cls_name:
+            counts["Trucks"] += 1
         elif "car" in cls_name:
             counts["Cars"] += 1
         elif "motorcycle" in cls_name or "bike" in cls_name or "bicycle" in cls_name:
@@ -407,7 +429,7 @@ if source_option == "Media / Document Upload (Up to 400MB)":
         breakdown_placeholder.markdown(html_table, unsafe_allow_html=True)
 
     update_breakdown_display({
-        "Cars": 0, "Bikes": 0, "Buses": 0, "Ambulances": 0, 
+        "Cars": 0, "Trucks": 0, "Bikes": 0, "Buses": 0, "Ambulances": 0, 
         "Persons": 0, "Persons with Mask": 0, "Disabled Persons": 0, "Blind Persons": 0
     })
 
@@ -450,7 +472,7 @@ if source_option == "Media / Document Upload (Up to 400MB)":
             warning_count = 0
             if current_risk:
                 warning_count = 1
-                instruction_text = "Reduce speed immediately, yield to pedestrians/ambulances, and prepare to brake."
+                instruction_text = "Reduce speed immediately, yield to pedestrians/trucks/ambulances, and prepare to brake."
                 cv2.putText(annotated, "WARNING: HAZARD PROXIMITY DETECTED", (25, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 3)
                 status_alert.error("🚨 Collision risk detected in uploaded image!")
                 show_hazard_popup(active_objects, min_dist)
@@ -471,6 +493,7 @@ if source_option == "Media / Document Upload (Up to 400MB)":
                 "Timestamp (s)": 0.0,
                 "Active Objects": active_objects,
                 "Cars": v_counts["Cars"],
+                "Trucks": v_counts["Trucks"],
                 "Bikes": v_counts["Bikes"],
                 "Buses": v_counts["Buses"],
                 "Ambulances": v_counts["Ambulances"],
@@ -541,6 +564,7 @@ if source_option == "Media / Document Upload (Up to 400MB)":
                     "Timestamp (s)": timestamp_sec,
                     "Active Objects": active_objects,
                     "Cars": v_counts["Cars"],
+                    "Trucks": v_counts["Trucks"],
                     "Bikes": v_counts["Bikes"],
                     "Buses": v_counts["Buses"],
                     "Ambulances": v_counts["Ambulances"],
@@ -590,7 +614,7 @@ if source_option == "Media / Document Upload (Up to 400MB)":
                 "Frame / File": f"Doc: {uploaded_file.name}",
                 "Timestamp (s)": 0.0,
                 "Active Objects": 0,
-                "Cars": 0, "Bikes": 0, "Buses": 0, "Ambulances": 0,
+                "Cars": 0, "Trucks": 0, "Bikes": 0, "Buses": 0, "Ambulances": 0,
                 "Persons": 0, "Persons with Mask": 0, "Disabled Persons": 0, "Blind Persons": 0,
                 "Collision Risk Warning": "NO",
                 "Warden Billu Instructions": instruction_text,
@@ -651,7 +675,7 @@ elif source_option == "Live Webcam":
         breakdown_placeholder.markdown(html_table, unsafe_allow_html=True)
 
     update_breakdown_display({
-        "Cars": 0, "Bikes": 0, "Buses": 0, "Ambulances": 0, 
+        "Cars": 0, "Trucks": 0, "Bikes": 0, "Buses": 0, "Ambulances": 0, 
         "Persons": 0, "Persons with Mask": 0, "Disabled Persons": 0, "Blind Persons": 0
     })
 
@@ -689,7 +713,7 @@ elif source_option == "Live Webcam":
         warning_count = 0
         if current_risk:
             warning_count = 1
-            instruction_text = "Slow down instantly, watch for pedestrians/ambulances, and stay defensive."
+            instruction_text = "Slow down instantly, watch for pedestrians/trucks, and stay defensive."
             cv2.putText(annotated, "WARNING: HAZARD PROXIMITY DETECTED", (25, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 3)
             status_alert.error("🚨 Collision risk detected in snapshot!")
             if warning_count == 1:
@@ -704,6 +728,7 @@ elif source_option == "Live Webcam":
             "Timestamp (s)": 0.0,
             "Active Objects": active_objects,
             "Cars": v_counts["Cars"],
+            "Trucks": v_counts["Trucks"],
             "Bikes": v_counts["Bikes"],
             "Buses": v_counts["Buses"],
             "Ambulances": v_counts["Ambulances"],
