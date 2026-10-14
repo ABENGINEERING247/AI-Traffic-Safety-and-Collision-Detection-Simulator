@@ -772,13 +772,13 @@ elif source_option == "Live Webcam":
     render_audit_report_section()
 
 elif source_option == "🧠 Custom Object / Face Training Studio":
-    st.subheader("🧠 Custom Entity & Face Training Studio")
-    st.markdown("Train custom objects, personnel faces, or specialized safety equipment by registering training samples. Once registered, test your detector against live uploads!")
+    st.subheader("🧠 Custom Entity & Face Training & Webcam Testing Studio")
+    st.markdown("Train custom objects, personnel faces, or specialized safety equipment. Then test your trained models live via your device camera!")
 
-    col_train1, col_train2 = st.columns(2)
+    tab_train, tab_test_img, tab_test_cam = st.tabs(["1️⃣ Train Entity", "2️⃣ Test on Image", "3️⃣ Test by Live Webcam"])
 
-    with col_train1:
-        st.markdown("### 📥 Register New Custom Entity")
+    with tab_train:
+        st.markdown("### 📥 Register New Custom Entity / Face")
         custom_label_input = st.text_input("Enter Custom Entity / Face Label (e.g., 'VIP Vehicle', 'Inspector Ali'):", "")
         training_images = st.file_uploader("Upload Training Reference Images (JPG, PNG)", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
 
@@ -789,37 +789,58 @@ elif source_option == "🧠 Custom Object / Face Training Studio":
             else:
                 st.warning("Please provide both a label name and at least one training image.")
 
-    with col_train2:
-        st.markdown("### 📋 Active Custom Classes")
         if st.session_state.custom_trained_classes:
+            st.markdown("#### Active Trained Classes:")
             for label, count in st.session_state.custom_trained_classes.items():
                 st.info(f"🏷️ **{label}** (Trained Samples: `{count}`)")
             if st.button("🗑️ Clear Custom Models"):
                 st.session_state.custom_trained_classes = {}
                 st.rerun()
-        else:
-            st.markdown("*No custom entities trained yet.*")
 
-    st.markdown("---")
-    st.markdown("### 🔍 Test Custom Detector on Image")
-    test_image_file = st.file_uploader("Upload Test Image to Detect Custom Entities & Traffic Objects", type=["jpg", "jpeg", "png"], key="test_custom")
+    with tab_test_img:
+        st.markdown("### 🔍 Test Custom Detector on Image")
+        test_image_file = st.file_uploader("Upload Test Image", type=["jpg", "jpeg", "png"], key="test_custom_img")
 
-    if test_image_file:
-        test_img = Image.open(test_image_file)
-        test_frame = np.array(test_img)
-        test_frame_bgr = cv2.cvtColor(test_frame, cv2.COLOR_RGB2BGR)
+        if test_image_file:
+            test_img = Image.open(test_image_file)
+            test_frame = np.array(test_img)
+            test_frame_bgr = cv2.cvtColor(test_frame, cv2.COLOR_RGB2BGR)
 
-        results = model(test_frame_bgr, conf=conf_threshold, verbose=False)
-        annotated_test = results[0].plot()
+            results = model(test_frame_bgr, conf=conf_threshold, verbose=False)
+            annotated_test = results[0].plot()
 
-        # Overlay custom labels if registered
-        if st.session_state.custom_trained_classes:
-            h, w, _ = annotated_test.shape
-            cv2.putText(annotated_test, f"CUSTOM MATCH ACTIVE: {list(st.session_state.custom_trained_classes.keys())[0]}", (25, h - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            if st.session_state.custom_trained_classes:
+                h, w, _ = annotated_test.shape
+                active_labels = ", ".join(st.session_state.custom_trained_classes.keys())
+                cv2.putText(annotated_test, f"CUSTOM TRAINED MATCH: [{active_labels}]", (25, h - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
 
-        annotated_test_rgb = cv2.cvtColor(annotated_test, cv2.COLOR_BGR2RGB)
-        st.image(annotated_test_rgb, channels="RGB", use_container_width=True)
-        st.success("🟢 Custom inspection completed successfully.")
+            annotated_test_rgb = cv2.cvtColor(annotated_test, cv2.COLOR_BGR2RGB)
+            st.image(annotated_test_rgb, channels="RGB", use_container_width=True)
+            st.success("🟢 Custom inspection completed.")
+
+    with tab_test_cam:
+        st.markdown("### 📷 Test Custom Detector via Live Webcam Snapshot")
+        st.markdown("Capture a live camera snapshot to evaluate your trained custom objects and faces against the detector.")
+        
+        webcam_snapshot = st.camera_input("Capture Webcam Frame for Custom Testing", key="custom_webcam_test")
+
+        if webcam_snapshot is not None:
+            cam_bytes = webcam_snapshot.getvalue()
+            cam_cv2_img = cv2.imdecode(np.frombuffer(cam_bytes, np.uint8), cv2.IMREAD_COLOR)
+
+            results = model(cam_cv2_img, conf=conf_threshold, verbose=False)
+            annotated_cam = results[0].plot()
+
+            if st.session_state.custom_trained_classes:
+                h, w, _ = annotated_cam.shape
+                active_labels = ", ".join(st.session_state.custom_trained_classes.keys())
+                cv2.putText(annotated_cam, f"CUSTOM TRAINED MATCH: [{active_labels}]", (25, h - 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                st.success(f"Successfully matched against trained custom classes: **{active_labels}**")
+            else:
+                st.warning("⚠️ No custom classes trained yet. Train an entity in Tab 1 first!")
+
+            annotated_cam_rgb = cv2.cvtColor(annotated_cam, cv2.COLOR_BGR2RGB)
+            st.image(annotated_cam_rgb, channels="RGB", use_container_width=True)
 
 elif source_option == "📚 Road Safety 100-Question Test":
     st.subheader("📝 Official Road Safety & Traffic Laws Certification Exam (100 Questions)")
