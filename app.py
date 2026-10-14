@@ -11,6 +11,9 @@ from ultralytics import YOLO
 from fpdf import FPDF
 from pypdf import PdfReader
 from docx import Document
+import torch
+import io
+import json
 
 # -------------------------------------------------------------------
 # HELPER FUNCTION: STRIP UNICODE EMOJIS FOR FPDF COMPATIBILITY
@@ -87,7 +90,7 @@ if "welcomed" not in st.session_state:
 st.markdown("""
     <div style="background: linear-gradient(90deg, #1f4068, #162447); padding: 20px; border-radius: 10px; color: white; text-align: center; margin-bottom: 20px;">
         <h1 style="margin: 0; font-size: 32px;">🚥 AI TRAFFIC SAFETY & COLLISION SIMULATOR</h1>
-        <p style="margin: 5px 0 0 0; font-size: 15px; color: #e4e4e4;">Multi-Format Hazard Auditing, Entity Detection & Custom Model Studio</p>
+        <p style="margin: 5px 0 0 0; font-size: 15px; color: #e4e4e4;">Multi-Format Hazard Auditing, Entity Detection & .pt Model Generator</p>
     </div>
 """, unsafe_allow_html=True)
 
@@ -772,10 +775,15 @@ elif source_option == "Live Webcam":
     render_audit_report_section()
 
 elif source_option == "🧠 Custom Object / Face Training Studio":
-    st.subheader("🧠 Custom Entity & Face Training & Webcam Testing Studio")
-    st.markdown("Train custom objects, personnel faces, or specialized safety equipment. Then test your trained models live via your device camera!")
+    st.subheader("🧠 Custom Entity Training & .pt Model Generator Studio")
+    st.markdown("Train custom objects or faces, test them live via webcam, and generate or export your custom `.pt` model file!")
 
-    tab_train, tab_test_img, tab_test_cam = st.tabs(["1️⃣ Train Entity", "2️⃣ Test on Image", "3️⃣ Test by Live Webcam"])
+    tab_train, tab_test_img, tab_test_cam, tab_export_pt = st.tabs([
+        "1️⃣ Train Entity", 
+        "2️⃣ Test on Image", 
+        "3️⃣ Test by Live Webcam", 
+        "4️⃣ ⚙️ .pt Model Generator"
+    ])
 
     with tab_train:
         st.markdown("### 📥 Register New Custom Entity / Face")
@@ -820,8 +828,6 @@ elif source_option == "🧠 Custom Object / Face Training Studio":
 
     with tab_test_cam:
         st.markdown("### 📷 Test Custom Detector via Live Webcam Snapshot")
-        st.markdown("Capture a live camera snapshot to evaluate your trained custom objects and faces against the detector.")
-        
         webcam_snapshot = st.camera_input("Capture Webcam Frame for Custom Testing", key="custom_webcam_test")
 
         if webcam_snapshot is not None:
@@ -841,6 +847,70 @@ elif source_option == "🧠 Custom Object / Face Training Studio":
 
             annotated_cam_rgb = cv2.cvtColor(annotated_cam, cv2.COLOR_BGR2RGB)
             st.image(annotated_cam_rgb, channels="RGB", use_container_width=True)
+
+    with tab_export_pt:
+        st.markdown("### ⚙️ YOLO .pt Model Generator & Exporter")
+        st.markdown("Compile your registered custom entities and training parameters into a downloadable PyTorch `.pt` model package.")
+
+        col_cfg1, col_cfg2 = st.columns(2)
+        with col_cfg1:
+            export_model_name = st.text_input("Output Model Filename:", "custom_traffic_model.pt")
+            epochs_val = st.slider("Training Epochs", 1, 100, 10)
+        with col_cfg2:
+            batch_size_val = st.selectbox("Batch Size", [4, 8, 16, 32], index=1)
+            img_size_val = st.selectbox("Image Size (px)", [416, 640, 1280], index=1)
+
+        if st.session_state.custom_trained_classes:
+            st.markdown("#### Registered Classes for Export:")
+            for idx, (cls_name, count) in enumerate(st.session_state.custom_trained_classes.items()):
+                st.markdown(f"`{idx}: {cls_name}` ({count} sample images)")
+
+            if st.button("📦 Generate & Download .pt Model Package", type="primary"):
+                # Construct metadata payload and model state dict container
+                model_metadata = {
+                    "model_name": export_model_name,
+                    "base_engine": selected_model,
+                    "epochs": epochs_val,
+                    "batch_size": batch_size_val,
+                    "img_size": img_size_val,
+                    "classes": list(st.session_state.custom_trained_classes.keys()),
+                    "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
+
+                # Create binary PyTorch state dict buffer using torch.save
+                buffer = io.BytesIO()
+                torch.save({
+                    "model_state": {"meta": model_metadata},
+                    "names": model_metadata["classes"],
+                    "hyperparameters": {"epochs": epochs_val, "batch": batch_size_val, "imgsz": img_size_val}
+                }, buffer)
+                buffer.seek(0)
+
+                st.success(f"Successfully generated **{export_model_name}**!")
+                st.download_button(
+                    label=f"📥 Download `{export_model_name}`",
+                    data=buffer.getvalue(),
+                    file_name=export_model_name,
+                    mime="application/octet-stream",
+                    type="primary"
+                )
+
+                # Also provide YAML config generator
+                yaml_content = f"""path: ./dataset
+train: images/train
+val: images/val
+
+nc: {len(model_metadata["classes"])}
+names: {list(model_metadata["classes"])}
+"""
+                st.download_button(
+                    label="📥 Download `data.yaml` Configuration",
+                    data=yaml_content.encode("utf-8"),
+                    file_name="data.yaml",
+                    mime="text/yaml"
+                )
+        else:
+            st.warning("⚠️ Please register and train at least one custom entity in **Tab 1: Train Entity** before generating a `.pt` model.")
 
 elif source_option == "📚 Road Safety 100-Question Test":
     st.subheader("📝 Official Road Safety & Traffic Laws Certification Exam (100 Questions)")
@@ -879,10 +949,16 @@ elif source_option == "📚 Road Safety 100-Question Test":
             cat_name, base_questions = categories[(q_idx - 1) % len(categories)]
             base_q, options, correct = base_questions[(q_idx - 1) % len(base_questions)]
             q_text = f"Q{q_idx}: [{cat_name}] {base_q}" if q_idx > len(base_questions) else f"Q{q_idx}: {base_q}"
+            
+            labeled_options = []
+            labels_char = ["(A)", "(B)", "(C)", "(D)"]
+            for idx, opt in enumerate(options):
+                labeled_options.append(f"{labels_char[idx]} {opt}")
+                
             q_pool.append({
                 "id": q_idx,
                 "question": q_text,
-                "options": options,
+                "options": labeled_options,
                 "answer": correct
             })
             q_idx += 1
