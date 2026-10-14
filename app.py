@@ -1,4 +1,5 @@
 from datetime import datetime
+import re
 import time
 import cv2
 import numpy as np
@@ -10,6 +11,25 @@ from ultralytics import YOLO
 from fpdf import FPDF
 from pypdf import PdfReader
 from docx import Document
+
+# -------------------------------------------------------------------
+# HELPER FUNCTION: STRIP UNICODE EMOJIS FOR FPDF COMPATIBILITY
+# -------------------------------------------------------------------
+def strip_emojis(text: str) -> str:
+    """Removes unicode emoji characters that standard FPDF fonts (Helvetica/Arial) cannot encode."""
+    if not text:
+        return ""
+    emoji_pattern = re.compile(
+        "[\U00010000-\U0010ffff"  # Extended symbols/emojis
+        "\u2600-\u27BF"          # Miscellaneous symbols
+        "\u2300-\u23FF"          # Miscellaneous technical
+        "\u2B00-\u2BFF"          # Various symbols & arrows
+        "\u200D"                 # Zero-width joiner
+        "\uFE0F]+",              # Variation selector
+        flags=re.UNICODE
+    )
+    cleaned_text = emoji_pattern.sub("", text)
+    return cleaned_text.encode("latin-1", "ignore").decode("latin-1")
 
 # 1. Page Configuration
 st.set_page_config(
@@ -152,15 +172,15 @@ def generate_pdf_report(df_data):
     pdf = FPDF(orientation='L', unit='mm', format='A4')
     pdf.add_page()
     
-    pdf.set_font("Arial", "B", 14)
+    pdf.set_font("Helvetica", "B", 14)
     pdf.cell(277, 8, txt="AI Traffic Safety & Comprehensive Entity Audit Report", ln=True, align="C")
     
     generation_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    pdf.set_font("Arial", "I", 9)
+    pdf.set_font("Helvetica", "I", 9)
     pdf.cell(277, 6, txt=f"Report Generated On: {generation_time} | Total Audit Records: {len(df_data)}", ln=True, align="C")
     pdf.ln(4)
     
-    pdf.set_font("Arial", "B", 8)
+    pdf.set_font("Helvetica", "B", 8)
     pdf.cell(15, 8, "Frm/ID", 1, 0, "C")
     pdf.cell(32, 8, "Date & Time", 1, 0, "C")
     pdf.cell(12, 8, "Tot", 1, 0, "C")
@@ -175,10 +195,10 @@ def generate_pdf_report(df_data):
     pdf.cell(12, 8, "Risk?", 1, 0, "C")
     pdf.cell(69, 8, "Warden Billu Instructions", 1, 1, "C")
     
-    pdf.set_font("Arial", "", 7)
+    pdf.set_font("Helvetica", "", 7)
     for index, row in df_data.head(50).iterrows():
-        pdf.cell(15, 8, str(row.get("Frame / File", row.get("Frame", 1))), 1, 0, "C")
-        pdf.cell(32, 8, str(row.get("Date & Time", "")), 1, 0, "C")
+        pdf.cell(15, 8, strip_emojis(str(row.get("Frame / File", row.get("Frame", 1)))), 1, 0, "C")
+        pdf.cell(32, 8, strip_emojis(str(row.get("Date & Time", ""))), 1, 0, "C")
         pdf.cell(12, 8, str(row.get("Active Objects", 0)), 1, 0, "C")
         pdf.cell(12, 8, str(row.get("Cars", 0)), 1, 0, "C")
         pdf.cell(12, 8, str(row.get("Bikes", 0)), 1, 0, "C")
@@ -189,7 +209,7 @@ def generate_pdf_report(df_data):
         pdf.cell(15, 8, str(row.get("Disabled Persons", 0)), 1, 0, "C")
         pdf.cell(15, 8, str(row.get("Blind Persons", 0)), 1, 0, "C")
         pdf.cell(12, 8, str(row.get("Collision Risk Warning", "NO")), 1, 0, "C")
-        pdf.cell(69, 8, str(row.get("Warden Billu Instructions", "Maintain steady speed.")), 1, 1, "L")
+        pdf.cell(69, 8, strip_emojis(str(row.get("Warden Billu Instructions", "Maintain steady speed."))), 1, 1, "L")
         
     pdf_output = pdf.output()
     if isinstance(pdf_output, str):
@@ -201,20 +221,20 @@ def generate_exam_certificate(candidate_name, score, is_competent):
     pdf = FPDF(orientation='L', unit='mm', format='A4')
     pdf.add_page()
     
-    # Border
+    safe_name = strip_emojis(candidate_name)
+    
     pdf.set_line_width(2)
     if is_competent:
-        pdf.set_draw_color(31, 64, 104) # Deep Blue
+        pdf.set_draw_color(31, 64, 104)
     else:
-        pdf.set_draw_color(180, 40, 40) # Crimson Red
+        pdf.set_draw_color(180, 40, 40)
     pdf.rect(10, 10, 277, 190)
     
     pdf.set_line_width(0.5)
     pdf.rect(13, 13, 271, 184)
     
-    # Title Header
     pdf.ln(15)
-    pdf.set_font("Arial", "B", 24)
+    pdf.set_font("Helvetica", "B", 24)
     if is_competent:
         pdf.set_text_color(31, 64, 104)
         pdf.cell(277, 12, "CERTIFICATE OF ROAD SAFETY COMPETENCY", ln=True, align="C")
@@ -222,27 +242,27 @@ def generate_exam_certificate(candidate_name, score, is_competent):
         pdf.set_text_color(180, 40, 40)
         pdf.cell(277, 12, "NOTICE OF ASSESSMENT - NOT YET COMPETENT", ln=True, align="C")
         
-    pdf.set_font("Arial", "I", 12)
+    pdf.set_font("Helvetica", "I", 12)
     pdf.set_text_color(80, 80, 80)
     pdf.cell(277, 8, "Issued by AI Traffic Safety Academy & Warden Billu Inspection Bureau", ln=True, align="C")
     
     pdf.ln(10)
-    pdf.set_font("Arial", "", 14)
+    pdf.set_font("Helvetica", "", 14)
     pdf.set_text_color(0, 0, 0)
     pdf.cell(277, 8, "This document certifies that candidate:", ln=True, align="C")
     
     pdf.ln(4)
-    pdf.set_font("Arial", "B", 20)
+    pdf.set_font("Helvetica", "B", 20)
     pdf.set_text_color(22, 36, 71)
-    pdf.cell(277, 10, candidate_name.upper(), ln=True, align="C")
+    pdf.cell(277, 10, safe_name.upper(), ln=True, align="C")
     
     pdf.ln(6)
-    pdf.set_font("Arial", "", 13)
+    pdf.set_font("Helvetica", "", 13)
     pdf.set_text_color(40, 40, 40)
-    pdf.cell(277, 8, f"has completed the Official 100-Question Road Safety & Traffic Regulations Assessment.", ln=True, align="C")
+    pdf.cell(277, 8, "has completed the Official 100-Question Road Safety & Traffic Regulations Assessment.", ln=True, align="C")
     
     pdf.ln(8)
-    pdf.set_font("Arial", "B", 16)
+    pdf.set_font("Helvetica", "B", 16)
     percentage = (score / 100.0) * 100
     if is_competent:
         pdf.set_text_color(0, 120, 50)
@@ -252,7 +272,7 @@ def generate_exam_certificate(candidate_name, score, is_competent):
         pdf.cell(277, 8, f"RESULT: NOT YET COMPETENT ({score} / 100 - {percentage:.1f}%)", ln=True, align="C")
 
     pdf.ln(10)
-    pdf.set_font("Arial", "I", 11)
+    pdf.set_font("Helvetica", "I", 11)
     pdf.set_text_color(60, 60, 60)
     
     if is_competent:
@@ -262,16 +282,15 @@ def generate_exam_certificate(candidate_name, score, is_competent):
     
     pdf.multi_cell(250, 6, remarks, align="C")
     
-    # Signature Section
     pdf.ln(20)
     issue_date = datetime.now().strftime("%B %d, %Y")
     
-    pdf.set_font("Arial", "B", 10)
+    pdf.set_font("Helvetica", "B", 10)
     pdf.set_text_color(0, 0, 0)
     pdf.cell(138, 6, f"Date of Assessment: {issue_date}", ln=0, align="C")
-    pdf.cell(138, 6, "Officer Signature: Warden Billu 👮‍♂️", ln=1, align="C")
+    pdf.cell(138, 6, "Officer Signature: Warden Billu", ln=1, align="C")
     
-    pdf.set_font("Arial", "I", 9)
+    pdf.set_font("Helvetica", "I", 9)
     pdf.set_text_color(120, 120, 120)
     pdf.cell(138, 4, "System Verified", ln=0, align="C")
     pdf.cell(138, 4, "Chief Inspector, GPT Luna Traffic Bureau", ln=1, align="C")
@@ -711,7 +730,6 @@ elif source_option == "📚 Road Safety 100-Question Test":
 
     candidate_name = st.text_input("👤 Enter Full Name for Certificate:", "Driver Candidate")
 
-    # Generate 100 structured questions programmatically
     if "quiz_questions" not in st.session_state:
         q_pool = []
         categories = [
@@ -795,9 +813,9 @@ elif source_option == "📚 Road Safety 100-Question Test":
             col_res3.metric("Competency Status", "🔴 NOT YET COMPETENT")
             st.error("👮‍♂️ **Warden Billu says:** *'Beep beep! You did not meet the 80% passing threshold for competency. Please study the missed questions and re-try.'*")
 
-        # --- PDF CERTIFICATE GENERATION & DOWNLOAD BUTTON ---
         cert_pdf_bytes = generate_exam_certificate(candidate_name, score, is_competent)
-        cert_filename = f"Road_Safety_Certificate_{candidate_name.replace(' ', '_')}.pdf" if is_competent else f"Road_Safety_Notice_{candidate_name.replace(' ', '_')}.pdf"
+        clean_file_name = candidate_name.replace(' ', '_')
+        cert_filename = f"Road_Safety_Certificate_{clean_file_name}.pdf" if is_competent else f"Road_Safety_Notice_{clean_file_name}.pdf"
         btn_label = "📜 Download Official PDF Certificate of Competency" if is_competent else "📄 Download PDF Assessment Notice (Not Yet Competent)"
 
         st.download_button(
