@@ -176,13 +176,13 @@ def get_model(model_name):
 model = get_model(selected_model)
 
 # --- FLASHING BIG-SCREEN MODAL & 10-SECOND REPEATING AUDIO HELPER ---
-def render_flashing_object_modal(object_name, distance_val):
+def render_flashing_object_modal(object_name, info_text=""):
     current_time = time.time()
     
-    # Trigger audio announcement and repeat every 10 seconds until closed
-    if (st.session_state.active_hazard_object == object_name) and (current_time - st.session_state.last_alert_time >= 10.0):
+    # Trigger audio announcement stating object name immediately and repeat every 10 seconds until closed
+    if (current_time - st.session_state.last_alert_time >= 10.0):
         st.session_state.last_alert_time = current_time
-        speech_text = f"Warning! {object_name} detected ahead!"
+        speech_text = f"Object detected! {object_name}!"
         st.components.v1.html(f"""
             <script>
                 const utterance = new SpeechSynthesisUtterance("{speech_text}");
@@ -192,14 +192,14 @@ def render_flashing_object_modal(object_name, distance_val):
         """, height=0)
 
     # Big screen flash banner with close button option
-    st.markdown("""
+    st.markdown(f"""
         <style>
-        @keyframes big-flash {
-            0% { background-color: #721c24; transform: scale(1); }
-            50% { background-color: #ff3333; transform: scale(1.02); }
-            100% { background-color: #721c24; transform: scale(1); }
-        }
-        .big-screen-flash-box {
+        @keyframes big-flash {{
+            0% {{ background-color: #1f4068; transform: scale(1); }}
+            50% {{ background-color: #ff3333; transform: scale(1.02); }}
+            100% {{ background-color: #1f4068; transform: scale(1); }}
+        }}
+        .big-screen-flash-box {{
             animation: big-flash 0.6s infinite ease-in-out;
             border: 4px solid #ffffff;
             border-radius: 15px;
@@ -208,13 +208,13 @@ def render_flashing_object_modal(object_name, distance_val):
             color: white;
             box-shadow: 0 0 30px rgba(255, 51, 51, 0.8);
             margin-bottom: 20px;
-        }
+        }}
         </style>
         
         <div class="big-screen-flash-box">
-            <h1 style="margin: 0; font-size: 38px;">🚨 HAZARD ALERT: {object_name.upper()}! 🚨</h1>
-            <p style="font-size: 18px; margin-top: 10px;">Proximity Breach Distance: <b>{int(distance_val)}px</b></p>
-            <p style="font-size: 14px; color: #ffcccc;">Audio warning will repeat every 10 seconds until dismissed.</p>
+            <h1 style="margin: 0; font-size: 38px;">🚨 OBJECT DETECTED: {object_name.upper()}! 🚨</h1>
+            <p style="font-size: 18px; margin-top: 10px;">{info_text}</p>
+            <p style="font-size: 14px; color: #ffcccc;">Audio announcement will repeat every 10 seconds until dismissed.</p>
         </div>
     """, unsafe_allow_html=True)
 
@@ -222,6 +222,7 @@ def render_flashing_object_modal(object_name, distance_val):
     with col_close2:
         if st.button("✖ CLOSE ALERT", type="primary", use_container_width=True):
             st.session_state.active_hazard_object = None
+            st.session_state.last_alert_time = 0.0
             st.rerun()
 
 # --- PDF GENERATOR FOR AUDIT LOGS ---
@@ -514,23 +515,22 @@ if source_option == "Media / Document Upload (Up to 400MB)":
                 instruction_text = "Reduce speed immediately, yield to pedestrians/trucks/ambulances, and prepare to brake."
                 cv2.putText(annotated, "WARNING: HAZARD PROXIMITY DETECTED", (25, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 3)
                 status_alert.error("🚨 Collision risk detected in uploaded image!")
-                
-                # Identify object name for audio alert & flashing screen
-                detected_obj_name = "Hazard Object"
-                for box in results[0].boxes:
-                    cls_id = int(box.cls[0])
-                    detected_obj_name = model.names.get(cls_id, "Obstacle")
-                    break
-                if st.session_state.active_hazard_object is None:
-                    st.session_state.active_hazard_object = detected_obj_name
-                    st.session_state.last_alert_time = time.time()
             else:
                 instruction_text = "Traffic flow clear. Maintain safe speed and remain alert."
-                status_alert.success("🟢 Scene stable. No immediate hazards.")
+                status_alert.success("🟢 Scene stable.")
 
-            # Render persistent hazard flash modal if active
+            # Trigger talking feature whenever any object is detected
+            if active_objects > 0 and st.session_state.active_hazard_object is None:
+                detected_obj_name = "Object"
+                for box in results[0].boxes:
+                    cls_id = int(box.cls[0])
+                    detected_obj_name = model.names.get(cls_id, "Object")
+                    break
+                st.session_state.active_hazard_object = detected_obj_name
+                st.session_state.last_alert_time = 0.0
+
             if st.session_state.active_hazard_object is not None:
-                render_flashing_object_modal(st.session_state.active_hazard_object, min_dist)
+                render_flashing_object_modal(st.session_state.active_hazard_object, f"Total active objects in view: {active_objects}")
 
             metric_box_objects.metric("Active Objects Tracked", active_objects)
             metric_box_warnings.metric("Collision Warnings", warning_count)
@@ -602,21 +602,21 @@ if source_option == "Media / Document Upload (Up to 400MB)":
                     instruction_text = "Reduce speed immediately, yield right-of-way, and increase following distance."
                     cv2.putText(annotated, "WARNING: HAZARD PROXIMITY DETECTED", (25, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 3)
                     status_alert.error("🚨 Collision risk detected in video frame!")
-                    
-                    detected_obj_name = "Hazard Object"
-                    for box in results[0].boxes:
-                        cls_id = int(box.cls[0])
-                        detected_obj_name = model.names.get(cls_id, "Obstacle")
-                        break
-                    if st.session_state.active_hazard_object is None:
-                        st.session_state.active_hazard_object = detected_obj_name
-                        st.session_state.last_alert_time = time.time()
                 else:
                     instruction_text = "Maintain steady cruising speed and stay alert."
                     status_alert.success("🟢 Traffic flow stable.")
 
+                if active_objects > 0 and st.session_state.active_hazard_object is None:
+                    detected_obj_name = "Object"
+                    for box in results[0].boxes:
+                        cls_id = int(box.cls[0])
+                        detected_obj_name = model.names.get(cls_id, "Object")
+                        break
+                    st.session_state.active_hazard_object = detected_obj_name
+                    st.session_state.last_alert_time = 0.0
+
                 if st.session_state.active_hazard_object is not None:
-                    render_flashing_object_modal(st.session_state.active_hazard_object, min_dist)
+                    render_flashing_object_modal(st.session_state.active_hazard_object, f"Active objects in frame: {active_objects}")
 
                 st.session_state.simulation_logs.append({
                     "Date & Time": current_datetime,
@@ -774,23 +774,23 @@ elif source_option == "Live Webcam":
         if current_risk:
             warning_count = 1
             instruction_text = "Slow down instantly, watch for pedestrians/trucks, and stay defensive."
-            cv2.putText(annotated, "WARNING: HAZARD PROXIMITY DETECTED", (25, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 3)
             status_alert.error("🚨 Collision risk detected in snapshot!")
-            
-            detected_obj_name = "Hazard Object"
-            for box in results[0].boxes:
-                cls_id = int(box.cls[0])
-                detected_obj_name = model.names.get(cls_id, "Obstacle")
-                break
-            if st.session_state.active_hazard_object is None:
-                st.session_state.active_hazard_object = detected_obj_name
-                st.session_state.last_alert_time = time.time()
         else:
             instruction_text = "Normal operation. Maintain regular safe speed limits."
             status_alert.success("🟢 Frame stable.")
 
+        # Trigger talking feature & big-screen flashing modal whenever any object is detected in live webcam
+        if active_objects > 0 and st.session_state.active_hazard_object is None:
+            detected_obj_name = "Object"
+            for box in results[0].boxes:
+                cls_id = int(box.cls[0])
+                detected_obj_name = model.names.get(cls_id, "Object")
+                break
+            st.session_state.active_hazard_object = detected_obj_name
+            st.session_state.last_alert_time = 0.0
+
         if st.session_state.active_hazard_object is not None:
-            render_flashing_object_modal(st.session_state.active_hazard_object, min_dist)
+            render_flashing_object_modal(st.session_state.active_hazard_object, f"Webcam active objects detected: {active_objects}")
 
         st.session_state.simulation_logs.append({
             "Date & Time": current_datetime,
