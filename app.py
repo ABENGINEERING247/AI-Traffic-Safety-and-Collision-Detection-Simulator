@@ -36,20 +36,26 @@ def strip_emojis(text: str) -> str:
 
 # 1. Page Configuration
 st.set_page_config(
-    page_title="AI Traffic Safety Simulator & Warden Billu",
+    page_title="AISIMULATOR",
     page_icon="👮‍♂️",
     layout="wide",
 )
 
-# --- INITIALIZE PERSISTENT LOGS & CUSTOM TRAINING STORAGE IN SESSION STATE ---
+# --- INITIALIZE PERSISTENT LOGS, CUSTOM TRAINING & AUDIO STATE ---
 if "simulation_logs" not in st.session_state:
     st.session_state.simulation_logs = []
 
 if "custom_trained_classes" not in st.session_state:
     st.session_state.custom_trained_classes = {}
 
+if "active_hazard_object" not in st.session_state:
+    st.session_state.active_hazard_object = None
+
+if "last_alert_time" not in st.session_state:
+    st.session_state.last_alert_time = 0.0
+
 # --- ANIMATED WELCOME POPUP ---
-@st.dialog("🚗 Welcome to AI Traffic Safety Simulator", width="medium")
+@st.dialog("🚗 Welcome to AISIMULATOR", width="medium")
 def show_welcome_popup():
     st.markdown("""
         <style>
@@ -78,7 +84,7 @@ def show_welcome_popup():
     """, unsafe_allow_html=True)
     
     st.markdown("---")
-    if st.button("🚀 Enter Simulator Dashboard", type="primary", use_container_width=True):
+    if st.button("🚀 Enter AISIMULATOR Dashboard", type="primary", use_container_width=True):
         st.session_state.welcomed = True
         st.rerun()
 
@@ -89,8 +95,8 @@ if "welcomed" not in st.session_state:
 # --- TRAFFIC HEADER BANNER ---
 st.markdown("""
     <div style="background: linear-gradient(90deg, #1f4068, #162447); padding: 20px; border-radius: 10px; color: white; text-align: center; margin-bottom: 20px;">
-        <h1 style="margin: 0; font-size: 32px;">🚥 AI TRAFFIC SAFETY & COLLISION SIMULATOR</h1>
-        <p style="margin: 5px 0 0 0; font-size: 15px; color: #e4e4e4;">Multi-Format Hazard Auditing, Entity Detection & .pt Model Generator</p>
+        <h1 style="margin: 0; font-size: 32px;">🚥 AISIMULATOR: TRAFFIC SAFETY & COLLISION SUITE</h1>
+        <p style="margin: 5px 0 0 0; font-size: 15px; color: #e4e4e4;">Multi-Format Hazard Auditing, Entity Detection & Audio Reminders</p>
     </div>
 """, unsafe_allow_html=True)
 
@@ -169,46 +175,54 @@ def get_model(model_name):
 
 model = get_model(selected_model)
 
-# --- HAZARD POPUP WITH HALF-PAGE TRUCK FRONT FACE ANIMATION ---
-@st.dialog("🚨 HEAVY TRUCK FRONT-FACE HAZARD ALERT!", width="large")
-def show_hazard_popup(active_objs, distance_val):
+# --- FLASHING BIG-SCREEN MODAL & 10-SECOND REPEATING AUDIO HELPER ---
+def render_flashing_object_modal(object_name, distance_val):
+    current_time = time.time()
+    
+    # Trigger audio announcement and repeat every 10 seconds until closed
+    if (st.session_state.active_hazard_object == object_name) and (current_time - st.session_state.last_alert_time >= 10.0):
+        st.session_state.last_alert_time = current_time
+        speech_text = f"Warning! {object_name} detected ahead!"
+        st.components.v1.html(f"""
+            <script>
+                const utterance = new SpeechSynthesisUtterance("{speech_text}");
+                utterance.rate = 1.0;
+                window.speechSynthesis.speak(utterance);
+            </script>
+        """, height=0)
+
+    # Big screen flash banner with close button option
     st.markdown("""
         <style>
-        @keyframes headlamp-flash {
-            0% { opacity: 0.1; filter: drop-shadow(0 0 2px #ff0000); }
-            50% { opacity: 1.0; filter: drop-shadow(0 0 25px #ff0000); }
-            100% { opacity: 0.1; filter: drop-shadow(0 0 2px #ff0000); }
+        @keyframes big-flash {
+            0% { background-color: #721c24; transform: scale(1); }
+            50% { background-color: #ff3333; transform: scale(1.02); }
+            100% { background-color: #721c24; transform: scale(1); }
         }
-        .truck-face-box {
-            background: linear-gradient(135deg, #162447, #1f4068);
-            border: 3px solid #ff3333;
-            border-radius: 12px;
-            padding: 20px;
+        .big-screen-flash-box {
+            animation: big-flash 0.6s infinite ease-in-out;
+            border: 4px solid #ffffff;
+            border-radius: 15px;
+            padding: 30px;
             text-align: center;
             color: white;
-            box-shadow: 0 0 20px rgba(255, 51, 51, 0.5);
-        }
-        .truck-ascii-face {
-            font-size: 64px;
-            animation: headlamp-flash 0.5s infinite ease-in-out;
-            margin: 10px 0;
-            letter-spacing: 5px;
+            box-shadow: 0 0 30px rgba(255, 51, 51, 0.8);
+            margin-bottom: 20px;
         }
         </style>
         
-        <div class="truck-face-box">
-            <div style="font-size: 14px; letter-spacing: 2px; color: #ff9999; font-weight: bold;">[ HEAD-ON PROXIMITY BREACH ]</div>
-            <div class="truck-ascii-face">🔴 🚚 🔴</div>
-            <div style="font-size: 16px; font-weight: bold; margin-top: 5px;">HEAVY TRUCK FRONT APPROACHING!</div>
+        <div class="big-screen-flash-box">
+            <h1 style="margin: 0; font-size: 38px;">🚨 HAZARD ALERT: {object_name.upper()}! 🚨</h1>
+            <p style="font-size: 18px; margin-top: 10px;">Proximity Breach Distance: <b>{int(distance_val)}px</b></p>
+            <p style="font-size: 14px; color: #ffcccc;">Audio warning will repeat every 10 seconds until dismissed.</p>
         </div>
     """, unsafe_allow_html=True)
-    
-    st.markdown("")
-    st.error(f"**Critical Proximity Threshold Breached!** Distance detected: **{int(distance_val)}px**.")
-    st.info("👮‍♂️ **Warden Billu says:** *'Big truck incoming dead ahead! Flash your high beams, reduce speed immediately, and yield right-of-way!'*")
-    
-    if st.button("🚨 Acknowledge & Take Control", type="primary", use_container_width=True):
-        st.rerun()
+
+    col_close1, col_close2, col_close3 = st.columns([1, 2, 1])
+    with col_close2:
+        if st.button("✖ CLOSE ALERT", type="primary", use_container_width=True):
+            st.session_state.active_hazard_object = None
+            st.rerun()
 
 # --- PDF GENERATOR FOR AUDIT LOGS ---
 def generate_pdf_report(df_data):
@@ -216,7 +230,7 @@ def generate_pdf_report(df_data):
     pdf.add_page()
     
     pdf.set_font("Helvetica", "B", 14)
-    pdf.cell(277, 8, txt="AI Traffic Safety & Comprehensive Entity Audit Report", ln=True, align="C")
+    pdf.cell(277, 8, txt="AISIMULATOR Comprehensive Entity Audit Report", ln=True, align="C")
     
     generation_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     pdf.set_font("Helvetica", "I", 9)
@@ -289,7 +303,7 @@ def generate_exam_certificate(candidate_name, score, is_competent):
         
     pdf.set_font("Helvetica", "I", 12)
     pdf.set_text_color(80, 80, 80)
-    pdf.cell(277, 8, "Issued by AI Traffic Safety Academy & Warden Billu Inspection Bureau", ln=True, align="C")
+    pdf.cell(277, 8, "Issued by AISIMULATOR & Warden Billu Inspection Bureau", ln=True, align="C")
     
     pdf.ln(10)
     pdf.set_font("Helvetica", "", 14)
@@ -500,10 +514,23 @@ if source_option == "Media / Document Upload (Up to 400MB)":
                 instruction_text = "Reduce speed immediately, yield to pedestrians/trucks/ambulances, and prepare to brake."
                 cv2.putText(annotated, "WARNING: HAZARD PROXIMITY DETECTED", (25, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 3)
                 status_alert.error("🚨 Collision risk detected in uploaded image!")
-                show_hazard_popup(active_objects, min_dist)
+                
+                # Identify object name for audio alert & flashing screen
+                detected_obj_name = "Hazard Object"
+                for box in results[0].boxes:
+                    cls_id = int(box.cls[0])
+                    detected_obj_name = model.names.get(cls_id, "Obstacle")
+                    break
+                if st.session_state.active_hazard_object is None:
+                    st.session_state.active_hazard_object = detected_obj_name
+                    st.session_state.last_alert_time = time.time()
             else:
                 instruction_text = "Traffic flow clear. Maintain safe speed and remain alert."
                 status_alert.success("🟢 Scene stable. No immediate hazards.")
+
+            # Render persistent hazard flash modal if active
+            if st.session_state.active_hazard_object is not None:
+                render_flashing_object_modal(st.session_state.active_hazard_object, min_dist)
 
             metric_box_objects.metric("Active Objects Tracked", active_objects)
             metric_box_warnings.metric("Collision Warnings", warning_count)
@@ -539,7 +566,6 @@ if source_option == "Media / Document Upload (Up to 400MB)":
             fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
             frame_idx = 0
             warning_count = 0
-            popup_triggered = False
 
             while cap.isOpened():
                 ret, frame = cap.read()
@@ -576,12 +602,21 @@ if source_option == "Media / Document Upload (Up to 400MB)":
                     instruction_text = "Reduce speed immediately, yield right-of-way, and increase following distance."
                     cv2.putText(annotated, "WARNING: HAZARD PROXIMITY DETECTED", (25, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 3)
                     status_alert.error("🚨 Collision risk detected in video frame!")
-                    if not popup_triggered:
-                        show_hazard_popup(active_objects, min_dist)
-                        popup_triggered = True
+                    
+                    detected_obj_name = "Hazard Object"
+                    for box in results[0].boxes:
+                        cls_id = int(box.cls[0])
+                        detected_obj_name = model.names.get(cls_id, "Obstacle")
+                        break
+                    if st.session_state.active_hazard_object is None:
+                        st.session_state.active_hazard_object = detected_obj_name
+                        st.session_state.last_alert_time = time.time()
                 else:
                     instruction_text = "Maintain steady cruising speed and stay alert."
                     status_alert.success("🟢 Traffic flow stable.")
+
+                if st.session_state.active_hazard_object is not None:
+                    render_flashing_object_modal(st.session_state.active_hazard_object, min_dist)
 
                 st.session_state.simulation_logs.append({
                     "Date & Time": current_datetime,
@@ -741,11 +776,21 @@ elif source_option == "Live Webcam":
             instruction_text = "Slow down instantly, watch for pedestrians/trucks, and stay defensive."
             cv2.putText(annotated, "WARNING: HAZARD PROXIMITY DETECTED", (25, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 255), 3)
             status_alert.error("🚨 Collision risk detected in snapshot!")
-            if warning_count == 1:
-                show_hazard_popup(active_objects, min_dist)
+            
+            detected_obj_name = "Hazard Object"
+            for box in results[0].boxes:
+                cls_id = int(box.cls[0])
+                detected_obj_name = model.names.get(cls_id, "Obstacle")
+                break
+            if st.session_state.active_hazard_object is None:
+                st.session_state.active_hazard_object = detected_obj_name
+                st.session_state.last_alert_time = time.time()
         else:
             instruction_text = "Normal operation. Maintain regular safe speed limits."
             status_alert.success("🟢 Frame stable.")
+
+        if st.session_state.active_hazard_object is not None:
+            render_flashing_object_modal(st.session_state.active_hazard_object, min_dist)
 
         st.session_state.simulation_logs.append({
             "Date & Time": current_datetime,
@@ -866,7 +911,6 @@ elif source_option == "🧠 Custom Object / Face Training Studio":
                 st.markdown(f"`{idx}: {cls_name}` ({count} sample images)")
 
             if st.button("📦 Generate & Download .pt Model Package", type="primary"):
-                # Construct metadata payload and model state dict container
                 model_metadata = {
                     "model_name": export_model_name,
                     "base_engine": selected_model,
@@ -877,7 +921,6 @@ elif source_option == "🧠 Custom Object / Face Training Studio":
                     "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 }
 
-                # Create binary PyTorch state dict buffer using torch.save
                 buffer = io.BytesIO()
                 torch.save({
                     "model_state": {"meta": model_metadata},
@@ -895,7 +938,6 @@ elif source_option == "🧠 Custom Object / Face Training Studio":
                     type="primary"
                 )
 
-                # Also provide YAML config generator
                 yaml_content = f"""path: ./dataset
 train: images/train
 val: images/val
